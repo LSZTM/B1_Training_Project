@@ -52,6 +52,41 @@ with st.expander("+ Add New Rule", expanded=False):
 
         new_column = st.selectbox("Column", options=columns or [])
 
+        if new_context and new_column:
+            with st.container(border=True):
+                st.markdown("#### Auto-Suggested Rules")
+                suggestions = ValidationService.suggest_rules(new_context, new_column)
+
+                if suggestions:
+                    for idx, suggestion in enumerate(suggestions):
+                        row_c1, row_c2 = st.columns([5, 2])
+                        with row_c1:
+                            st.markdown(
+                                f"**{suggestion['rule_code']}** · "
+                                f"Confidence `{suggestion['confidence']:.2f}`  \n"
+                                f"`{suggestion['rule_params'] or '(no params)'}`  \n"
+                                f"{suggestion['rationale']}"
+                            )
+                        with row_c2:
+                            if st.button("Add Suggestion", key=f"add_suggest_{idx}", use_container_width=True):
+                                auto_error_code = f"AUTO_{suggestion['rule_code'].upper()[:20]}"
+                                added = ValidationService.add_validation_rule(
+                                    table=new_context,
+                                    column=new_column,
+                                    rule_code=suggestion["rule_code"],
+                                    rule_params=suggestion["rule_params"],
+                                    allow_null=suggestion["rule_code"] != "NOT_NULL",
+                                    is_active=True,
+                                    error_code=auto_error_code,
+                                    comparison_column=None,
+                                )
+                                if added:
+                                    st.success(f"Added suggested rule: {suggestion['rule_code']}")
+                                    st.rerun()
+                                st.error("Failed to add suggested rule.")
+                else:
+                    st.caption("No high-confidence suggestions found for this column.")
+
     with c2:
         rule_types = [
             "IsEmail",

@@ -1,5 +1,6 @@
 import pandas as pd
 import logging
+import re
 from contextlib import contextmanager
 from utils.db import get_connection, close_connection
 
@@ -63,6 +64,33 @@ def execute_sql(query, params=None):
 # =========================================================
 
 class ValidationService:
+    NUMERIC_TYPES = {
+        "int", "bigint", "smallint", "tinyint",
+        "decimal", "numeric", "float", "real",
+        "money", "smallmoney",
+    }
+
+    @staticmethod
+    def _is_safe_identifier(value):
+        return bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value or ""))
+
+    @staticmethod
+    def _quote_identifier(value):
+        return f"[{value}]"
+
+    @staticmethod
+    def _upsert_suggestion(bucket, rule_code, rule_params, confidence, rationale):
+        existing = bucket.get(rule_code)
+        suggestion = {
+            "rule_code": rule_code,
+            "rule_params": rule_params or "",
+            "confidence": round(float(confidence), 2),
+            "rationale": rationale,
+        }
+        if not existing or suggestion["confidence"] > existing["confidence"]:
+            bucket[rule_code] = suggestion
+        elif existing["rationale"] != rationale:
+            existing["rationale"] = f"{existing['rationale']} | {rationale}"
 
     # =====================================================
     # VALIDATION EXECUTION
@@ -392,3 +420,132 @@ class ValidationService:
             ORDER BY ORDINAL_POSITION
         """
         return fetch_df(query, [table])
+
+    @staticmethod
+    def suggest_rules(table, column, sample_size=200):
+        """Suggest validation rules for a table column using semantic/statistical/profile passes."""
+        if not ValidationService._is_safe_identifier(table) or not ValidationService._is_safe_identifier(column):
+            return []
+
+        schema = ValidationService.get_table_schema(table)
+        if schema.empty:
+            return []
+
+        schema_row = schema[schema["COLUMN_NAME"] == column]
+        if schema_row.empty:
+            return []
+
+        data_type = str(schema_row.iloc[0]["DATA_TYPE"]).lower()
+        suggestions = {}
+
+        # Pass 1: semantic name matching
+        col_name = column.lower()
+        semantic_rules = [
+            (("dob", "birth", "date", "_at", "time"), "IsDate", "format=YYYY-MM-DD", 0.95, "Column name indicates a date/time field."),
+            (("email", "mail"), "IsEmail", "", 0.95, "Column name indicates an email field."),
+            (("phone", "mobile", "tel"), "is_phone", "format=E164", 0.92, "Column name indicates a phone field."),
+            (("ssn", "tax", "national_id"), "is_ssn", "", 0.92, "Column name indicates a national identifier field."),
+            (("url", "website", "link"), "is_url", "", 0.9, "Column name indicates a URL field."),
+        ]
+
+        for keywords, code, params, confidence, rationale in semantic_rules:
+            if any(keyword in col_name for keyword in keywords):
+                ValidationService._upsert_suggestion(
+                    suggestions, code, params, confidence, f"Semantic pass: {rationale}"
+                )
+
+        query = f"""
+            SELECT TOP ({int(sample_size)}) {ValidationService._quote_identifier(column)} AS sample_value
+            FROM {ValidationService._quote_identifier(table)}
+        """
+        sample_df = fetch_df(query)
+        if sample_df.empty:
+            return list(suggestions.values())
+
+        raw_series = sample_df["sample_value"]
+        non_null = raw_series.dropna()
+        non_null_count = len(non_null)
+        total_count = len(raw_series)
+
+        if non_null_count == 0:
+            return list(suggestions.values())
+
+        # Pass 2: statistical inference
+        if data_type in ValidationService.NUMERIC_TYPES:
+            numeric_series = pd.to_numeric(non_null, errors="coerce").dropna()
+            if not numeric_series.empty:
+                q05 = float(numeric_series.quantile(0.05))
+                q95 = float(numeric_series.quantile(0.95))
+                ValidationService._upsert_suggestion(
+                    suggestions,
+                    "is_digit",
+                    "",
+                    0.87,
+                    "Statistical pass: Numeric SQL data type detected.",
+                )
+                ValidationService._upsert_suggestion(
+                    suggestions,
+                    "min_value",
+                    f"value={q05:.4f}",
+                    0.83,
+                    "Statistical pass: 5th percentile used as robust minimum.",
+                )
+                ValidationService._upsert_suggestion(
+                    suggestions,
+                    "max_value",
+                    f"value={q95:.4f}",
+                    0.83,
+                    "Statistical pass: 95th percentile used as robust maximum.",
+                )
+
+        null_count = int(total_count - non_null_count)
+        if null_count == 0:
+            ValidationService._upsert_suggestion(
+                suggestions,
+                "NOT_NULL",
+                "",
+                0.8,
+                "Statistical pass: No NULL values found in sampled rows.",
+            )
+
+        # Pass 3: cardinality detection
+        value_strings = non_null.astype(str).str.strip()
+        unique_values = sorted(value_strings.unique().tolist())
+        unique_count = len(unique_values)
+        distinct_ratio = unique_count / max(non_null_count, 1)
+
+        if distinct_ratio <= 0.10 and unique_count < 15:
+            allowed_values = ",".join(unique_values)
+            ValidationService._upsert_suggestion(
+                suggestions,
+                "is_in_list",
+                f"values={allowed_values}",
+                0.84,
+                f"Cardinality pass: {unique_count} distinct values across {non_null_count} sampled rows.",
+            )
+
+        # Pass 4: pattern matching (80% threshold)
+        pattern_checks = [
+            ("IsEmail", r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", "", "Pattern pass: Email shape match in sampled rows."),
+            ("is_phone", r"^\+[1-9]\d{7,14}$", "format=E164", "Pattern pass: E.164 phone format detected."),
+            ("is_ssn", r"^\d{3}-\d{2}-\d{4}$", "", "Pattern pass: SSN format detected."),
+            ("is_url", r"^https?://[^\s/$.?#].[^\s]*$", "", "Pattern pass: URL structure detected."),
+            ("IsDate", r"^\d{4}-\d{2}-\d{2}$", "format=YYYY-MM-DD", "Pattern pass: ISO date format detected."),
+        ]
+        for code, regex, params, rationale in pattern_checks:
+            matches = value_strings.str.match(regex, na=False).sum()
+            ratio = matches / max(non_null_count, 1)
+            if ratio >= 0.80:
+                ValidationService._upsert_suggestion(
+                    suggestions,
+                    code,
+                    params,
+                    0.7 + (0.2 * ratio),
+                    f"{rationale} Match rate: {ratio:.0%}.",
+                )
+
+        return sorted(
+            suggestions.values(),
+            key=lambda item: item["confidence"],
+            reverse=True,
+        )
