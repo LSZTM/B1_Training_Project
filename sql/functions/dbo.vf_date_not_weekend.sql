@@ -1,0 +1,9 @@
+CREATE OR ALTER FUNCTION dbo.vf_date_not_weekend
+(
+    @value NVARCHAR(MAX)
+)
+RETURNS BIT
+AS
+BEGIN
+    IF @value IS NULL RETURN 1; DECLARE @d DATE=TRY_CAST(@value AS DATE); IF @d IS NULL RETURN 0; RETURN IIF(DATENAME(WEEKDAY,@d) IN ('Saturday','Sunday'),0,1);
+END

@@ -1,0 +1,9 @@
+CREATE OR ALTER FUNCTION dbo.vf_percentage_range
+(
+    @value NVARCHAR(MAX)
+)
+RETURNS BIT
+AS
+BEGIN
+    IF @value IS NULL RETURN 1; RETURN IIF(TRY_CAST(@value AS FLOAT) BETWEEN 0.0 AND 100.0,1,0);
+END

@@ -1,0 +1,9 @@
+CREATE OR ALTER FUNCTION dbo.vf_is_json
+(
+    @value NVARCHAR(MAX)
+)
+RETURNS BIT
+AS
+BEGIN
+    IF @value IS NULL RETURN 1; RETURN IIF(ISJSON(@value)=1,1,0);
+END

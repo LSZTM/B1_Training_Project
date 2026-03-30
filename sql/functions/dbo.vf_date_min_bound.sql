@@ -1,0 +1,10 @@
+CREATE OR ALTER FUNCTION dbo.vf_date_min_bound
+(
+    @value NVARCHAR(MAX),
+    @param NVARCHAR(MAX)
+)
+RETURNS BIT
+AS
+BEGIN
+    IF @value IS NULL RETURN 1; RETURN IIF(TRY_CAST(@value AS DATE)>=TRY_CAST(@param AS DATE),1,0);
+END

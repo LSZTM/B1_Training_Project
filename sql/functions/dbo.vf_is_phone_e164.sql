@@ -1,0 +1,9 @@
+CREATE OR ALTER FUNCTION dbo.vf_is_phone_e164
+(
+    @value NVARCHAR(MAX)
+)
+RETURNS BIT
+AS
+BEGIN
+    IF @value IS NULL RETURN 1; DECLARE @v NVARCHAR(MAX)=REPLACE(REPLACE(REPLACE(REPLACE(@value,' ',''),'-',''),'(',''),')',''); RETURN IIF(@v LIKE '+[1-9]%' AND LEN(@v) BETWEEN 8 AND 15 AND SUBSTRING(@v,2,100) NOT LIKE '%[^0-9]%',1,0);
+END

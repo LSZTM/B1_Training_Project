@@ -1,0 +1,9 @@
+CREATE OR ALTER FUNCTION dbo.vf_no_cleartext_password
+(
+    @value NVARCHAR(MAX)
+)
+RETURNS BIT
+AS
+BEGIN
+    IF @value IS NULL RETURN 1; DECLARE @v NVARCHAR(MAX)=LTRIM(RTRIM(@value)); IF LEN(@v) NOT BETWEEN 6 AND 72 RETURN 1; IF @v LIKE '$2a$%' OR @v LIKE '$2b$%' OR @v LIKE '$2y$%' RETURN 1; IF LEN(@v) IN (32,40,64,128) AND @v NOT LIKE '%[^0-9A-Fa-f]%' RETURN 1; RETURN 0;
+END
