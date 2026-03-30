@@ -56,6 +56,36 @@ with st.expander("+ Add New Rule", expanded=False):
             with st.container(border=True):
                 st.markdown("#### Auto-Suggested Rules")
                 suggestions = ValidationService.suggest_rules(new_context, new_column)
+                column_ctx = ValidationService.get_column_context(new_context, new_column)
+
+                category_badge = {
+                    "typed": ("success", "Typed column — high confidence suggestions"),
+                    "sparse": ("warning", f"Sparse column — {int(column_ctx.get('null_rate', 0) * 100)}% NULL"),
+                    "mixed": ("warning", "Mixed content detected"),
+                    "free_text": ("neutral", "Free text column — hygiene rules only"),
+                    "opaque": ("error", "Opaque column — manual review recommended"),
+                }
+                badge_style, badge_label = category_badge.get(
+                    column_ctx.get("category", "opaque"),
+                    ("neutral", "Column profile unavailable"),
+                )
+                st.markdown(
+                    f'<span class="dg-badge {badge_style}">{badge_label}</span>',
+                    unsafe_allow_html=True,
+                )
+
+                if column_ctx.get("warning"):
+                    st.warning(column_ctx["warning"])
+
+                if column_ctx.get("category") in {"mixed", "opaque"}:
+                    with st.expander("Data fingerprint", expanded=False):
+                        for pattern, rate in sorted(
+                            column_ctx.get("fingerprint", {}).items(),
+                            key=lambda item: item[1],
+                            reverse=True,
+                        ):
+                            if rate > 0.05:
+                                st.progress(rate, text=f"{pattern}: {rate:.0%}")
 
                 if suggestions:
                     for idx, suggestion in enumerate(suggestions):
@@ -63,7 +93,8 @@ with st.expander("+ Add New Rule", expanded=False):
                         with row_c1:
                             st.markdown(
                                 f"**{suggestion['rule_code']}** · "
-                                f"Confidence `{suggestion['confidence']:.2f}`  \n"
+                                f"Confidence `{suggestion['confidence']:.2f}` · "
+                                f"[{suggestion.get('source', 'data')}]  \n"
                                 f"`{suggestion['rule_params'] or '(no params)'}`  \n"
                                 f"{suggestion['rationale']}"
                             )
