@@ -1,0 +1,9 @@
+CREATE OR ALTER FUNCTION dbo.vf_encoding_check
+(
+    @value NVARCHAR(MAX)
+)
+RETURNS BIT
+AS
+BEGIN
+    IF @value IS NULL RETURN 1; RETURN IIF(@value LIKE '%'+NCHAR(65533)+'%',0,1);
+END

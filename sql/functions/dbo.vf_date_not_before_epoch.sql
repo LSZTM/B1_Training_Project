@@ -1,0 +1,9 @@
+CREATE OR ALTER FUNCTION dbo.vf_date_not_before_epoch
+(
+    @value NVARCHAR(MAX)
+)
+RETURNS BIT
+AS
+BEGIN
+    IF @value IS NULL RETURN 1; RETURN IIF(TRY_CAST(@value AS DATE)>='1970-01-01',1,0);
+END

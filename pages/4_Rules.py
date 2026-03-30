@@ -94,7 +94,7 @@ with st.expander("+ Add New Rule", expanded=False):
                             st.markdown(
                                 f"**{suggestion['rule_code']}** · "
                                 f"Confidence `{suggestion['confidence']:.2f}` · "
-                                f"[{suggestion.get('source', 'data')}]  \n"
+                                f"[{suggestion.get('category', 'general')}/{suggestion.get('source', 'data')}]  \n"
                                 f"`{suggestion['rule_params'] or '(no params)'}`  \n"
                                 f"{suggestion['rationale']}"
                             )
@@ -119,14 +119,7 @@ with st.expander("+ Add New Rule", expanded=False):
                     st.caption("No high-confidence suggestions found for this column.")
 
     with c2:
-        rule_types = [
-            "IsEmail",
-            "NOT_NULL",
-            "NumberInRange",
-            "HasLength",
-            "ColumnComparison",
-            "IsDate",
-        ]
+        rule_types = sorted(ValidationService.RULE_SIGNAL_MAP.keys())
 
         new_rule = st.selectbox("Rule Type", rule_types)
 

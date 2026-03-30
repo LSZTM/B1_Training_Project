@@ -1,0 +1,9 @@
+CREATE OR ALTER FUNCTION dbo.vf_positive_balance
+(
+    @value NVARCHAR(MAX)
+)
+RETURNS BIT
+AS
+BEGIN
+    IF @value IS NULL RETURN 1; RETURN IIF(TRY_CAST(@value AS DECIMAL(19,4))>=0,1,0);
+END

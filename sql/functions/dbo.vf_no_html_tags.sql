@@ -1,0 +1,9 @@
+CREATE OR ALTER FUNCTION dbo.vf_no_html_tags
+(
+    @value NVARCHAR(MAX)
+)
+RETURNS BIT
+AS
+BEGIN
+    IF @value IS NULL RETURN 1; RETURN IIF(CHARINDEX('<',@value)>0 AND CHARINDEX('>',@value)>0,0,1);
+END

@@ -1,0 +1,9 @@
+CREATE OR ALTER FUNCTION dbo.vf_date_not_holiday
+(
+    @value NVARCHAR(MAX)
+)
+RETURNS BIT
+AS
+BEGIN
+    IF @value IS NULL RETURN 1; RETURN 1;
+END

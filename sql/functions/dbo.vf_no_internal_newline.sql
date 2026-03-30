@@ -1,0 +1,9 @@
+CREATE OR ALTER FUNCTION dbo.vf_no_internal_newline
+(
+    @value NVARCHAR(MAX)
+)
+RETURNS BIT
+AS
+BEGIN
+    IF @value IS NULL RETURN 1; RETURN IIF(CHARINDEX(CHAR(10),@value)=0 AND CHARINDEX(CHAR(13),@value)=0,1,0);
+END

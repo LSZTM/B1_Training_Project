@@ -1,0 +1,10 @@
+CREATE OR ALTER FUNCTION dbo.vf_max_value
+(
+    @value NVARCHAR(MAX),
+    @param NVARCHAR(MAX)
+)
+RETURNS BIT
+AS
+BEGIN
+    IF @value IS NULL RETURN 1; RETURN IIF(TRY_CAST(@value AS FLOAT)<=TRY_CAST(@param AS FLOAT),1,0);
+END
