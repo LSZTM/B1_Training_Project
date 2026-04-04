@@ -99,6 +99,28 @@ if not runs.empty:
                         unsafe_allow_html=True,
                     )
                     st.json(details)
+
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.markdown("#### Per-Rule Breakdown")
+                    rule_results_df = ValidationService.get_rule_results(selected_id)
+                    if rule_results_df.empty:
+                        st.caption("No per-rule metrics recorded for this run.")
+                    else:
+                        st.dataframe(
+                            rule_results_df,
+                            use_container_width=True,
+                            hide_index=True,
+                            column_config={
+                                "table_name": "Table",
+                                "column_name": "Column",
+                                "rule_code": "Rule",
+                                "rows_scanned": "Rows Scanned",
+                                "pass_count": "Pass",
+                                "fail_count": "Fail",
+                                "pass_rate": st.column_config.NumberColumn("Pass Rate", format="%.4f"),
+                                "run_timestamp": "Recorded At",
+                            },
+                        )
                 else:
                     st.info("No detail payload returned for this run.")
             except Exception as exc:

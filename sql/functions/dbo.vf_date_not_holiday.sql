@@ -5,5 +5,5 @@ CREATE OR ALTER FUNCTION dbo.vf_date_not_holiday
 RETURNS BIT
 AS
 BEGIN
-    IF @value IS NULL RETURN 1; RETURN 1;
+    RETURN 0;
 END
