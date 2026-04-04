@@ -141,6 +141,21 @@ BEGIN
         CASE WHEN @fail_count = 0 THEN 'SUCCESS' ELSE 'FAILED' END,
         GETDATE()
     );
+    DECLARE @run_id INT = SCOPE_IDENTITY();
+
+    IF OBJECT_ID('dbo.validation_rule_results', 'U') IS NOT NULL
+    BEGIN
+        INSERT INTO dbo.validation_rule_results
+        (
+            run_id, table_name, column_name, rule_code, rows_scanned, pass_count, fail_count, pass_rate, run_timestamp
+        )
+        VALUES
+        (
+            @run_id, @table_name, @column_name, @rule_code, @scanned, @pass_count, @fail_count,
+            CAST(CASE WHEN @scanned = 0 THEN 0 ELSE 1.0 * @pass_count / @scanned END AS DECIMAL(10,4)),
+            GETDATE()
+        );
+    END
 
     SELECT
         @table_name AS table_name,

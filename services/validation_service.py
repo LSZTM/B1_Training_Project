@@ -196,6 +196,54 @@ class ValidationService:
             return {"success": False, "error": str(e)}
 
     @staticmethod
+    def get_run_history(limit=100):
+        return fetch_df(
+            """
+            SELECT TOP (?) run_id, table_name, column_name, rule_code, total_records_scanned, total_errors, duration_ms, status, run_timestamp
+            FROM validation_run_history
+            ORDER BY run_id DESC
+            """,
+            [limit],
+        )
+
+    @staticmethod
+    def get_run_details(run_id):
+        df = fetch_df(
+            """
+            SELECT TOP 1 run_id, table_name, column_name, rule_code, total_records_scanned, total_errors, duration_ms, status, run_timestamp
+            FROM validation_run_history
+            WHERE run_id = ?
+            """,
+            [run_id],
+        )
+        if df.empty:
+            return {}
+        row = df.iloc[0]
+        return {
+            "run_id": int(row.get("run_id", 0)),
+            "table_name": row.get("table_name"),
+            "column_name": row.get("column_name"),
+            "rule_code": row.get("rule_code"),
+            "records_scanned": int(row.get("total_records_scanned", 0) or 0),
+            "total_errors": int(row.get("total_errors", 0) or 0),
+            "duration_ms": int(row.get("duration_ms", 0) or 0),
+            "status": str(row.get("status", "unknown")).lower(),
+            "run_timestamp": str(row.get("run_timestamp")),
+        }
+
+    @staticmethod
+    def get_rule_results(run_id):
+        return fetch_df(
+            """
+            SELECT result_id, run_id, table_name, column_name, rule_code, rows_scanned, pass_count, fail_count, pass_rate, run_timestamp
+            FROM dbo.validation_rule_results
+            WHERE run_id = ?
+            ORDER BY result_id ASC
+            """,
+            [run_id],
+        )
+
+    @staticmethod
     def get_metrics():
         try:
             rules = fetch_value("SELECT COUNT(*) FROM temp_validation_config WHERE is_active = 1")
