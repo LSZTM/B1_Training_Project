@@ -3,6 +3,7 @@ render_sidebar()
 
 import streamlit as st
 import pandas as pd
+from services.rule import Rule
 from services.validation_service import ValidationService
 from utils.styles import load_css
 
@@ -34,6 +35,7 @@ with st.expander("+ Add New Rule", expanded=False):
     schema_df = pd.DataFrame()
     schema_dict = {}
 
+    implementation_map = ValidationService.get_rule_implementation_map()
     c1, c2 = st.columns(2, gap="medium")
 
     with c1:
@@ -100,16 +102,24 @@ with st.expander("+ Add New Rule", expanded=False):
                             )
                         with row_c2:
                             if st.button("Add Suggestion", key=f"add_suggest_{idx}", use_container_width=True):
+                                if not implementation_map.get(suggestion["rule_code"], True):
+                                    st.warning(f"{suggestion['rule_code']} is not yet implemented and cannot be added.")
+                                    st.stop()
                                 auto_error_code = f"AUTO_{suggestion['rule_code'].upper()[:20]}"
-                                added = ValidationService.add_validation_rule(
+                                suggested_rule = Rule.from_signal_map(
                                     table=new_context,
                                     column=new_column,
                                     rule_code=suggestion["rule_code"],
+                                    rule_signal_map=ValidationService.RULE_SIGNAL_MAP,
+                                    implementation_map=implementation_map,
                                     rule_params=suggestion["rule_params"],
                                     allow_null=suggestion["rule_code"] != "NOT_NULL",
                                     is_active=True,
                                     error_code=auto_error_code,
                                     comparison_column=None,
+                                )
+                                added = ValidationService.add_validation_rule(
+                                    suggested_rule
                                 )
                                 if added:
                                     st.success(f"Added suggested rule: {suggestion['rule_code']}")
@@ -122,6 +132,14 @@ with st.expander("+ Add New Rule", expanded=False):
         rule_types = sorted(ValidationService.RULE_SIGNAL_MAP.keys())
 
         new_rule = st.selectbox("Rule Type", rule_types)
+        if not implementation_map.get(new_rule, True):
+            st.markdown(
+                '<span class="dg-badge warning">Not yet implemented</span>',
+                unsafe_allow_html=True,
+            )
+            st.warning(
+                "This rule is currently marked NOT_IMPLEMENTED in the database and cannot be saved."
+            )
 
     # ---------------------------------------------------
     #  Dynamic parameter inputs
@@ -264,16 +282,25 @@ with st.expander("+ Add New Rule", expanded=False):
                 st.warning("Select a column to compare with.")
                 st.stop()
 
+            if not implementation_map.get(new_rule, True):
+                st.warning(f"Rule {new_rule} is not yet implemented and cannot be saved.")
+                st.stop()
+
             try:
-                success = ValidationService.add_validation_rule(
+                rule = Rule.from_signal_map(
                     table=new_context,
                     column=new_column,
                     rule_code=new_rule,
+                    rule_signal_map=ValidationService.RULE_SIGNAL_MAP,
+                    implementation_map=implementation_map,
                     rule_params=params,
                     allow_null=allow_null,
                     is_active=True,
                     error_code=error_code,
                     comparison_column=comparison_column,
+                )
+                success = ValidationService.add_validation_rule(
+                    rule
                 )
 
                 if success:
@@ -294,6 +321,20 @@ try:
     rules_df = ValidationService.get_validation_rules()  # Returns DataFrame
 
     if not rules_df.empty:
+        rules_df = rules_df.copy()
+        rules_df["is_implemented"] = rules_df["rule_code"].map(implementation_map).fillna(True)
+        rules_df["implementation_status"] = rules_df["is_implemented"].map(
+            lambda val: "Implemented" if bool(val) else "Not yet implemented"
+        )
+        if "last_pass_rate" in rules_df.columns:
+            raw_rates = pd.to_numeric(rules_df["last_pass_rate"], errors="coerce")
+            if "status_badge" not in rules_df.columns:
+                rules_df["status_badge"] = raw_rates.apply(
+                    lambda val: "Never run" if pd.isna(val) else ("Healthy" if val > 0.99 else "Warning" if val >= 0.95 else "Failing")
+                )
+            rules_df["last_pass_rate"] = raw_rates.apply(
+                lambda val: "Never run" if pd.isna(val) else f"{val:.4f}"
+            )
         total_rules = len(rules_df)
         total_contexts = rules_df["table_name"].nunique() if "table_name" in rules_df.columns else 0
 
@@ -321,6 +362,9 @@ try:
                 "is_active": st.column_config.CheckboxColumn("Active"),
                 "error_code": "Error Code",
                 "comparison_column": "Compare With",
+                "implementation_status": "Implementation",
+                "last_pass_rate": "Last Pass Rate",
+                "status_badge": "Health",
             }
         )
 

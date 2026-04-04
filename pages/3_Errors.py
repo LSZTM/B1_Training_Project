@@ -31,7 +31,13 @@ st.markdown(
 st.markdown('<div class="dg-section-label">Filters</div>', unsafe_allow_html=True)
 
 tables  = ValidationService.get_tables()
-codes   = ValidationService.get_error_codes()
+code_reference = ValidationService.get_error_code_reference()
+codes = code_reference["error_code"].tolist() if not code_reference.empty else ValidationService.get_error_codes()
+code_label_map = {
+    row["error_code"]: f"{row['error_code']} — {row['description']}"
+    for _, row in code_reference.fillna("").iterrows()
+    if row.get("description")
+}
 
 c1, c2, c3 = st.columns(3, gap="medium")
 
@@ -44,7 +50,12 @@ columns = (
 )
 
 selected_column = c2.selectbox("Column",     ["All"] + columns)
-selected_code   = c3.selectbox("Error Code", ["All"] + codes)
+selected_code_label = c3.selectbox(
+    "Error Code",
+    ["All"] + [code_label_map.get(code, code) for code in codes],
+)
+label_to_code = {code_label_map.get(code, code): code for code in codes}
+selected_code = label_to_code.get(selected_code_label, selected_code_label)
 
 _, apply_col, _ = st.columns([3, 1, 3])
 with apply_col:
