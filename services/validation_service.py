@@ -315,23 +315,51 @@ class ValidationService:
 
     @staticmethod
     def get_error_codes():
-        df = fetch_df("SELECT DISTINCT error_code FROM error_log ORDER BY error_code")
+        df = fetch_df(
+            """
+            SELECT error_code FROM error_code_master
+            UNION
+            SELECT DISTINCT error_code FROM error_log
+            ORDER BY 1
+            """
+        )
         return df["error_code"].tolist() if not df.empty else []
 
     @staticmethod
+    def get_error_code_reference():
+        return fetch_df(
+            """
+            SELECT c.error_code, m.description
+            FROM (
+                SELECT error_code FROM error_code_master
+                UNION
+                SELECT DISTINCT error_code FROM error_log
+            ) c
+            LEFT JOIN error_code_master m
+                ON c.error_code = m.error_code
+            ORDER BY c.error_code
+            """
+        )
+
+    @staticmethod
     def get_filtered_errors(table=None, column=None, error_code=None, limit=500):
-        query = "SELECT TOP (?) table_name, record_identifier, failed_field, error_code, log_time FROM error_log WHERE 1=1"
+        query = """
+        SELECT TOP (?) e.table_name, e.record_identifier, e.failed_field, e.error_code, m.description AS error_description, e.log_time
+        FROM error_log e
+        LEFT JOIN error_code_master m ON e.error_code = m.error_code
+        WHERE 1=1
+        """
         params = [limit]
         if table:
-            query += " AND table_name = ?"
+            query += " AND e.table_name = ?"
             params.append(table)
         if column:
-            query += " AND failed_field = ?"
+            query += " AND e.failed_field = ?"
             params.append(column)
         if error_code:
-            query += " AND error_code = ?"
+            query += " AND e.error_code = ?"
             params.append(error_code)
-        query += " ORDER BY log_time DESC"
+        query += " ORDER BY e.log_time DESC"
         return fetch_df(query, params)
 
     @staticmethod
