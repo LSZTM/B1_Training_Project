@@ -143,18 +143,36 @@ with c1:
 
 with c2:
     st.markdown(
-        '<div class="dg-card-title" style="margin-bottom:12px;">Recent Activity</div>',
+        '<div class="dg-card-title" style="margin-bottom:12px;">Error Rate Trend</div>',
         unsafe_allow_html=True,
     )
+    trend_df = ValidationService.get_error_trend(days=14)
+
+    trend_direction = "stable"
+    trend_badge = "neutral"
+    if len(trend_df) >= 3:
+        last_three = trend_df.tail(3)["error_rate"].astype(float).tolist()
+        if last_three[0] < last_three[1] < last_three[2]:
+            trend_direction = "degrading"
+            trend_badge = "error"
+        elif last_three[0] > last_three[1] > last_three[2]:
+            trend_direction = "improving"
+            trend_badge = "success"
+
     st.markdown(
-        """
-        <div class="dg-card" style="color:var(--text-muted);font-family:var(--font-mono);
-             font-size:0.75rem;padding:16px;">
-            Activity feed — coming soon
-        </div>
-        """,
+        f'<span class="dg-badge {trend_badge}" style="margin-bottom:10px;display:inline-block;">Trend: {trend_direction}</span>',
         unsafe_allow_html=True,
     )
+
+    if trend_df.empty:
+        st.caption("No run history available for trend window.")
+    else:
+        chart_df = trend_df.copy()
+        chart_df["run_timestamp"] = chart_df["run_timestamp"].astype(str)
+        st.line_chart(
+            chart_df.set_index("run_timestamp")["error_rate"],
+            height=220,
+        )
 
 st.markdown("<br>", unsafe_allow_html=True)
 

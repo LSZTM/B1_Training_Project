@@ -271,6 +271,28 @@ class ValidationService:
             return {"rules": 0, "codes": 0, "errors": 0}
 
     @staticmethod
+    def get_error_trend(days=14) -> pd.DataFrame:
+        return fetch_df(
+            """
+            SELECT
+                run_timestamp,
+                total_errors,
+                total_records_scanned,
+                CAST(
+                    CASE
+                        WHEN ISNULL(total_records_scanned, 0) = 0 THEN 0
+                        ELSE 1.0 * total_errors / total_records_scanned
+                    END
+                    AS DECIMAL(10,4)
+                ) AS error_rate
+            FROM validation_run_history
+            WHERE run_timestamp >= DATEADD(DAY, -?, GETDATE())
+            ORDER BY run_timestamp ASC
+            """,
+            [int(days)],
+        )
+
+    @staticmethod
     def get_recent_errors(limit=10):
         return fetch_df("""SELECT TOP (?) table_name, record_identifier, failed_field, error_code, log_time FROM error_log ORDER BY log_time DESC""", [limit])
 
