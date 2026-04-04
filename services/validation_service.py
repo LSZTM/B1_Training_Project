@@ -60,6 +60,11 @@ def execute_sql(query, params=None):
 
 
 class ValidationService:
+    NOT_IMPLEMENTED_RULES = {
+        "foreign_key_check",
+        "non_overlapping_range",
+        "date_not_holiday",
+    }
     NUMERIC_TYPES = {
         "int", "bigint", "smallint", "tinyint", "decimal", "numeric", "float", "real", "money", "smallmoney"
     }
@@ -263,8 +268,24 @@ class ValidationService:
         return execute_sql("TRUNCATE TABLE error_log")
 
     @staticmethod
+    def get_rule_implementation_map():
+        status_map = {code: True for code in ValidationService.RULE_SIGNAL_MAP.keys()}
+        for code in ValidationService.NOT_IMPLEMENTED_RULES:
+            status_map[code] = False
+
+        df = fetch_df("SELECT rule_code, is_implemented FROM dbo.rule_implementation_status")
+        if not df.empty:
+            for _, row in df.iterrows():
+                status_map[str(row["rule_code"])] = bool(row["is_implemented"])
+        return status_map
+
+    @staticmethod
     def get_active_rules():
         return fetch_df("""SELECT id, table_name, column_name, rule_code, rule_params, allow_null, is_active, error_code, comparison_column FROM temp_validation_config ORDER BY table_name, column_name""")
+
+    @staticmethod
+    def get_validation_rules():
+        return ValidationService.get_active_rules()
 
     @staticmethod
     def toggle_rule(rule_id, is_active):
@@ -276,6 +297,9 @@ class ValidationService:
 
     @staticmethod
     def add_validation_rule(table, column, rule_code, rule_params="", allow_null=False, is_active=True, error_code="E000", comparison_column=None):
+        if rule_code in ValidationService.NOT_IMPLEMENTED_RULES:
+            logger.warning("Rejected add_validation_rule for not implemented rule: %s", rule_code)
+            return False
         try:
             with db_conn() as conn:
                 cursor = conn.cursor()
