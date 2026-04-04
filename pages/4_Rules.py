@@ -326,15 +326,6 @@ try:
         rules_df["implementation_status"] = rules_df["is_implemented"].map(
             lambda val: "Implemented" if bool(val) else "Not yet implemented"
         )
-        if "last_pass_rate" in rules_df.columns:
-            raw_rates = pd.to_numeric(rules_df["last_pass_rate"], errors="coerce")
-            if "status_badge" not in rules_df.columns:
-                rules_df["status_badge"] = raw_rates.apply(
-                    lambda val: "Never run" if pd.isna(val) else ("Healthy" if val > 0.99 else "Warning" if val >= 0.95 else "Failing")
-                )
-            rules_df["last_pass_rate"] = raw_rates.apply(
-                lambda val: "Never run" if pd.isna(val) else f"{val:.4f}"
-            )
         total_rules = len(rules_df)
         total_contexts = rules_df["table_name"].nunique() if "table_name" in rules_df.columns else 0
 
@@ -363,8 +354,6 @@ try:
                 "error_code": "Error Code",
                 "comparison_column": "Compare With",
                 "implementation_status": "Implementation",
-                "last_pass_rate": "Last Pass Rate",
-                "status_badge": "Health",
             }
         )
 

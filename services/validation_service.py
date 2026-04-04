@@ -384,41 +384,7 @@ class ValidationService:
 
     @staticmethod
     def get_validation_rules():
-        has_rule_results = fetch_value("SELECT CASE WHEN OBJECT_ID('dbo.validation_rule_results', 'U') IS NULL THEN 0 ELSE 1 END", default=0)
-        if not has_rule_results:
-            return ValidationService.get_active_rules()
-
-        return fetch_df(
-            """
-            SELECT
-                c.id,
-                c.table_name,
-                c.column_name,
-                c.rule_code,
-                c.rule_params,
-                c.allow_null,
-                c.is_active,
-                c.error_code,
-                c.comparison_column,
-                latest.pass_rate AS last_pass_rate,
-                CASE
-                    WHEN latest.pass_rate IS NULL THEN 'Never run'
-                    WHEN latest.pass_rate > 0.99 THEN 'Healthy'
-                    WHEN latest.pass_rate >= 0.95 THEN 'Warning'
-                    ELSE 'Failing'
-                END AS status_badge
-            FROM temp_validation_config c
-            OUTER APPLY (
-                SELECT TOP 1 rr.pass_rate
-                FROM dbo.validation_rule_results rr
-                WHERE rr.table_name = c.table_name
-                  AND rr.column_name = c.column_name
-                  AND rr.rule_code = c.rule_code
-                ORDER BY rr.run_timestamp DESC, rr.result_id DESC
-            ) latest
-            ORDER BY c.table_name, c.column_name
-            """
-        )
+        return ValidationService.get_active_rules()
 
     @staticmethod
     def toggle_rule(rule_id, is_active):
@@ -429,12 +395,9 @@ class ValidationService:
         return execute_sql("DELETE FROM temp_validation_config WHERE id = ?", [rule_id])
 
     @staticmethod
-    def add_validation_rule(rule: Rule):
-        if not isinstance(rule, Rule):
-            raise TypeError("add_validation_rule expects a Rule object.")
-
-        if not rule.is_implemented:
-            logger.warning("Rejected add_validation_rule for not implemented rule: %s", rule.rule_code)
+    def add_validation_rule(table, column, rule_code, rule_params="", allow_null=False, is_active=True, error_code="E000", comparison_column=None):
+        if rule_code in ValidationService.NOT_IMPLEMENTED_RULES:
+            logger.warning("Rejected add_validation_rule for not implemented rule: %s", rule_code)
             return False
         try:
             with db_conn() as conn:
