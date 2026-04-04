@@ -345,12 +345,9 @@ class ValidationService:
         return execute_sql("DELETE FROM temp_validation_config WHERE id = ?", [rule_id])
 
     @staticmethod
-    def add_validation_rule(rule: Rule):
-        if not isinstance(rule, Rule):
-            raise TypeError("add_validation_rule expects a Rule object.")
-
-        if not rule.is_implemented:
-            logger.warning("Rejected add_validation_rule for not implemented rule: %s", rule.rule_code)
+    def add_validation_rule(table, column, rule_code, rule_params="", allow_null=False, is_active=True, error_code="E000", comparison_column=None):
+        if rule_code in ValidationService.NOT_IMPLEMENTED_RULES:
+            logger.warning("Rejected add_validation_rule for not implemented rule: %s", rule_code)
             return False
         try:
             with db_conn() as conn:
