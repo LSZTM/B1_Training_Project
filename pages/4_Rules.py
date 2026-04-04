@@ -3,6 +3,7 @@ render_sidebar()
 
 import streamlit as st
 import pandas as pd
+from services.rule import Rule
 from services.validation_service import ValidationService
 from utils.styles import load_css
 
@@ -105,15 +106,20 @@ with st.expander("+ Add New Rule", expanded=False):
                                     st.warning(f"{suggestion['rule_code']} is not yet implemented and cannot be added.")
                                     st.stop()
                                 auto_error_code = f"AUTO_{suggestion['rule_code'].upper()[:20]}"
-                                added = ValidationService.add_validation_rule(
+                                suggested_rule = Rule.from_signal_map(
                                     table=new_context,
                                     column=new_column,
                                     rule_code=suggestion["rule_code"],
+                                    rule_signal_map=ValidationService.RULE_SIGNAL_MAP,
+                                    implementation_map=implementation_map,
                                     rule_params=suggestion["rule_params"],
                                     allow_null=suggestion["rule_code"] != "NOT_NULL",
                                     is_active=True,
                                     error_code=auto_error_code,
                                     comparison_column=None,
+                                )
+                                added = ValidationService.add_validation_rule(
+                                    suggested_rule
                                 )
                                 if added:
                                     st.success(f"Added suggested rule: {suggestion['rule_code']}")
@@ -281,15 +287,20 @@ with st.expander("+ Add New Rule", expanded=False):
                 st.stop()
 
             try:
-                success = ValidationService.add_validation_rule(
+                rule = Rule.from_signal_map(
                     table=new_context,
                     column=new_column,
                     rule_code=new_rule,
+                    rule_signal_map=ValidationService.RULE_SIGNAL_MAP,
+                    implementation_map=implementation_map,
                     rule_params=params,
                     allow_null=allow_null,
                     is_active=True,
                     error_code=error_code,
                     comparison_column=comparison_column,
+                )
+                success = ValidationService.add_validation_rule(
+                    rule
                 )
 
                 if success:

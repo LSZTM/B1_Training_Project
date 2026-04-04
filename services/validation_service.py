@@ -6,6 +6,7 @@ from contextlib import contextmanager
 
 import pandas as pd
 
+from services.rule import Rule
 from utils.db import close_connection, get_connection
 
 logger = logging.getLogger(__name__)
@@ -309,14 +310,7 @@ class ValidationService:
                     (table_name, column_name, rule_code, rule_params, allow_null, is_active, error_code, comparison_column)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    table,
-                    column,
-                    rule_code,
-                    rule_params,
-                    int(allow_null),
-                    int(is_active),
-                    error_code,
-                    comparison_column,
+                    *rule.to_insert_params(),
                 )
                 conn.commit()
                 return True
