@@ -2,7 +2,7 @@ import streamlit as st
 import time
 from utils.styles import load_css
 from components.sidebar import render_sidebar
-import test_connection
+from utils.db import test_connection
 
 # ──────────────────────────────────────────────────────────────────────────────
 # PAGE CONFIG
@@ -76,7 +76,7 @@ if not st.session_state.boot_complete:
             time.sleep(0.42)
 
         # Database handshake
-        result = test_connection.test_connection()
+        result = test_connection()
         st.session_state.connected = result.get("success", False)
         time.sleep(0.25)
 

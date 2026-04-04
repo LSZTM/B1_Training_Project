@@ -6,6 +6,7 @@ from contextlib import contextmanager
 
 import pandas as pd
 
+from services.rule import Rule
 from utils.db import close_connection, get_connection
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,11 @@ def execute_sql(query, params=None):
 
 
 class ValidationService:
+    NOT_IMPLEMENTED_RULES = {
+        "foreign_key_check",
+        "non_overlapping_range",
+        "date_not_holiday",
+    }
     NUMERIC_TYPES = {
         "int", "bigint", "smallint", "tinyint", "decimal", "numeric", "float", "real", "money", "smallmoney"
     }
@@ -190,6 +196,54 @@ class ValidationService:
             return {"success": False, "error": str(e)}
 
     @staticmethod
+    def get_run_history(limit=100):
+        return fetch_df(
+            """
+            SELECT TOP (?) run_id, table_name, column_name, rule_code, total_records_scanned, total_errors, duration_ms, status, run_timestamp
+            FROM validation_run_history
+            ORDER BY run_id DESC
+            """,
+            [limit],
+        )
+
+    @staticmethod
+    def get_run_details(run_id):
+        df = fetch_df(
+            """
+            SELECT TOP 1 run_id, table_name, column_name, rule_code, total_records_scanned, total_errors, duration_ms, status, run_timestamp
+            FROM validation_run_history
+            WHERE run_id = ?
+            """,
+            [run_id],
+        )
+        if df.empty:
+            return {}
+        row = df.iloc[0]
+        return {
+            "run_id": int(row.get("run_id", 0)),
+            "table_name": row.get("table_name"),
+            "column_name": row.get("column_name"),
+            "rule_code": row.get("rule_code"),
+            "records_scanned": int(row.get("total_records_scanned", 0) or 0),
+            "total_errors": int(row.get("total_errors", 0) or 0),
+            "duration_ms": int(row.get("duration_ms", 0) or 0),
+            "status": str(row.get("status", "unknown")).lower(),
+            "run_timestamp": str(row.get("run_timestamp")),
+        }
+
+    @staticmethod
+    def get_rule_results(run_id):
+        return fetch_df(
+            """
+            SELECT result_id, run_id, table_name, column_name, rule_code, rows_scanned, pass_count, fail_count, pass_rate, run_timestamp
+            FROM dbo.validation_rule_results
+            WHERE run_id = ?
+            ORDER BY result_id ASC
+            """,
+            [run_id],
+        )
+
+    @staticmethod
     def get_metrics():
         try:
             rules = fetch_value("SELECT COUNT(*) FROM temp_validation_config WHERE is_active = 1")
@@ -215,6 +269,28 @@ class ValidationService:
         except Exception as e:
             logger.error("get_metrics failed: %s", e)
             return {"rules": 0, "codes": 0, "errors": 0}
+
+    @staticmethod
+    def get_error_trend(days=14) -> pd.DataFrame:
+        return fetch_df(
+            """
+            SELECT
+                run_timestamp,
+                total_errors,
+                total_records_scanned,
+                CAST(
+                    CASE
+                        WHEN ISNULL(total_records_scanned, 0) = 0 THEN 0
+                        ELSE 1.0 * total_errors / total_records_scanned
+                    END
+                    AS DECIMAL(10,4)
+                ) AS error_rate
+            FROM validation_run_history
+            WHERE run_timestamp >= DATEADD(DAY, -?, GETDATE())
+            ORDER BY run_timestamp ASC
+            """,
+            [int(days)],
+        )
 
     @staticmethod
     def get_recent_errors(limit=10):
@@ -263,8 +339,24 @@ class ValidationService:
         return execute_sql("TRUNCATE TABLE error_log")
 
     @staticmethod
+    def get_rule_implementation_map():
+        status_map = {code: True for code in ValidationService.RULE_SIGNAL_MAP.keys()}
+        for code in ValidationService.NOT_IMPLEMENTED_RULES:
+            status_map[code] = False
+
+        df = fetch_df("SELECT rule_code, is_implemented FROM dbo.rule_implementation_status")
+        if not df.empty:
+            for _, row in df.iterrows():
+                status_map[str(row["rule_code"])] = bool(row["is_implemented"])
+        return status_map
+
+    @staticmethod
     def get_active_rules():
         return fetch_df("""SELECT id, table_name, column_name, rule_code, rule_params, allow_null, is_active, error_code, comparison_column FROM temp_validation_config ORDER BY table_name, column_name""")
+
+    @staticmethod
+    def get_validation_rules():
+        return ValidationService.get_active_rules()
 
     @staticmethod
     def toggle_rule(rule_id, is_active):
@@ -275,7 +367,13 @@ class ValidationService:
         return execute_sql("DELETE FROM temp_validation_config WHERE id = ?", [rule_id])
 
     @staticmethod
-    def add_validation_rule(table, column, rule_code, rule_params="", allow_null=False, is_active=True, error_code="E000", comparison_column=None):
+    def add_validation_rule(rule: Rule):
+        if not isinstance(rule, Rule):
+            raise TypeError("add_validation_rule expects a Rule object.")
+
+        if not rule.is_implemented:
+            logger.warning("Rejected add_validation_rule for not implemented rule: %s", rule.rule_code)
+            return False
         try:
             with db_conn() as conn:
                 cursor = conn.cursor()
@@ -285,14 +383,7 @@ class ValidationService:
                     (table_name, column_name, rule_code, rule_params, allow_null, is_active, error_code, comparison_column)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    table,
-                    column,
-                    rule_code,
-                    rule_params,
-                    int(allow_null),
-                    int(is_active),
-                    error_code,
-                    comparison_column,
+                    *rule.to_insert_params(),
                 )
                 conn.commit()
                 return True
