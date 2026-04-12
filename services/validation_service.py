@@ -2,10 +2,12 @@ import base64
 import json
 import logging
 import re
+import uuid
 from contextlib import contextmanager
 
 import pandas as pd
 
+from services.logs_service import LogsService
 from services.rule import Rule
 from utils.db import close_connection, get_connection
 
@@ -31,6 +33,14 @@ def fetch_df(query, params=None):
             return pd.read_sql(query, conn, params=params)
     except Exception as e:
         logger.error("fetch_df failed: %s", e)
+        LogsService.capture_exception(
+            message="DataFrame query failed",
+            source_module="services.validation_service.fetch_df",
+            exception=e,
+            payload={"query": query, "params": params},
+            event_type="validation.query.failed",
+            validation_status=None,
+        )
         return pd.DataFrame()
 
 
@@ -44,6 +54,14 @@ def fetch_value(query, params=None, default=0):
             return row[0] if row else default
     except Exception as e:
         logger.error("fetch_value failed: %s", e)
+        LogsService.capture_exception(
+            message="Scalar query failed",
+            source_module="services.validation_service.fetch_value",
+            exception=e,
+            payload={"query": query, "params": params},
+            event_type="validation.query.failed",
+            validation_status=None,
+        )
         return default
 
 
@@ -57,6 +75,14 @@ def execute_sql(query, params=None):
             return True
     except Exception as e:
         logger.error("execute_sql failed: %s", e)
+        LogsService.capture_exception(
+            message="SQL execution failed",
+            source_module="services.validation_service.execute_sql",
+            exception=e,
+            payload={"query": query, "params": params},
+            event_type="validation.command.failed",
+            validation_status=None,
+        )
         return False
 
 
@@ -175,24 +201,107 @@ class ValidationService:
 
     @staticmethod
     def run_all_validations():
+        correlation_id = str(uuid.uuid4())
+        validation_id = str(uuid.uuid4())
+        LogsService.log_event(
+            severity="INFO",
+            message="Validation batch started.",
+            event_type="validation.started",
+            source_module="services.validation_service.run_all_validations",
+            validation_id=validation_id,
+            correlation_id=correlation_id,
+            validation_status="STARTED",
+            payload={"procedure": "dbo.execute_all_validations_with_logging"},
+        )
         try:
             with db_conn() as conn:
                 cursor = conn.cursor()
-                cursor.execute("EXEC dbo.execute_all_validations")
-                conn.commit()
-                cursor.execute(
-                    """
-                    SELECT TOP 1 run_id, total_records_scanned, total_errors, duration_ms, status
-                    FROM validation_run_history
-                    ORDER BY run_id DESC
-                    """
-                )
-                row = cursor.fetchone()
-            if not row:
-                return {"success": True}
-            return {"success": True, "run_id": row[0], "records_scanned": row[1], "total_errors": row[2], "duration_ms": row[3], "status": row[4]}
+                used_wrapper = False
+
+                try:
+                    cursor.execute("EXEC dbo.execute_all_validations_with_logging")
+                    row = cursor.fetchone()
+                    conn.commit()
+                    used_wrapper = True
+                except Exception as wrapper_error:
+                    if "execute_all_validations_with_logging" not in str(wrapper_error):
+                        raise
+
+                    cursor.execute("EXEC dbo.execute_all_validations")
+                    conn.commit()
+                    cursor.execute(
+                        """
+                        SELECT TOP 1 run_id, total_records_scanned, total_errors, duration_ms, status
+                        FROM validation_run_history
+                        ORDER BY run_id DESC
+                        """
+                    )
+                    fallback = cursor.fetchone()
+                    if not fallback:
+                        row = None
+                    else:
+                        row = (
+                            validation_id,
+                            correlation_id,
+                            fallback[0],
+                            1,
+                            1 if (fallback[2] or 0) > 0 else 0,
+                            fallback[1],
+                            fallback[2],
+                            fallback[3],
+                            fallback[4],
+                        )
+
+                if not row:
+                    LogsService.log_event(
+                        severity="WARNING",
+                        message="Validation batch completed without any run history rows.",
+                        event_type="validation.completed",
+                        source_module="services.validation_service.run_all_validations",
+                        validation_id=validation_id,
+                        correlation_id=correlation_id,
+                        validation_status="COMPLETED",
+                        payload={"used_wrapper": used_wrapper, "run_rows": 0},
+                    )
+                    return {"success": True, "validation_id": validation_id, "correlation_id": correlation_id}
+
+                result = {
+                    "success": True,
+                    "validation_id": str(row[0] or validation_id),
+                    "correlation_id": str(row[1] or correlation_id),
+                    "run_id": row[2],
+                    "run_count": row[3],
+                    "failed_runs": row[4],
+                    "records_scanned": row[5],
+                    "total_errors": row[6],
+                    "duration_ms": row[7],
+                    "status": row[8],
+                }
+
+            LogsService.log_event(
+                severity="INFO",
+                message="Validation batch completed.",
+                event_type="validation.completed",
+                source_module="services.validation_service.run_all_validations",
+                validation_id=result["validation_id"],
+                correlation_id=result["correlation_id"],
+                validation_status="COMPLETED",
+                duration_ms=result.get("duration_ms"),
+                output_summary=result,
+                payload={"failed_runs": result.get("failed_runs", 0), "run_count": result.get("run_count", 0)},
+            )
+            return result
         except Exception as e:
             logger.error("run_all_validations failed: %s", e)
+            LogsService.capture_exception(
+                message="Validation batch failed.",
+                source_module="services.validation_service.run_all_validations",
+                exception=e,
+                event_type="validation.failed",
+                validation_id=validation_id,
+                correlation_id=correlation_id,
+                payload={"procedure": "dbo.execute_all_validations_with_logging"},
+            )
             return {"success": False, "error": str(e)}
 
     @staticmethod
@@ -395,9 +504,37 @@ class ValidationService:
         return execute_sql("DELETE FROM temp_validation_config WHERE id = ?", [rule_id])
 
     @staticmethod
-    def add_validation_rule(table, column, rule_code, rule_params="", allow_null=False, is_active=True, error_code="E000", comparison_column=None):
-        if rule_code in ValidationService.NOT_IMPLEMENTED_RULES:
-            logger.warning("Rejected add_validation_rule for not implemented rule: %s", rule_code)
+    def add_validation_rule(rule_or_table, column=None, rule_code=None, rule_params="", allow_null=False, is_active=True, error_code="E000", comparison_column=None):
+        if isinstance(rule_or_table, Rule):
+            rule = rule_or_table
+        else:
+            implementation_map = ValidationService.get_rule_implementation_map()
+            rule = Rule.from_signal_map(
+                table=rule_or_table,
+                column=column,
+                rule_code=rule_code,
+                rule_signal_map=ValidationService.RULE_SIGNAL_MAP,
+                implementation_map=implementation_map,
+                rule_params=rule_params,
+                allow_null=allow_null,
+                is_active=is_active,
+                error_code=error_code,
+                comparison_column=comparison_column,
+            )
+
+        if rule.rule_code in ValidationService.NOT_IMPLEMENTED_RULES:
+            logger.warning("Rejected add_validation_rule for not implemented rule: %s", rule.rule_code)
+            LogsService.log_event(
+                severity="WARNING",
+                message=f"Attempted to save not-yet-implemented rule {rule.rule_code}.",
+                event_type="validation.rule.skipped",
+                source_module="services.validation_service.add_validation_rule",
+                validation_context=f"{rule.table}.{rule.column}",
+                rule_code=rule.rule_code,
+                table_name=rule.table,
+                column_name=rule.column,
+                payload={"error_code": rule.error_code},
+            )
             return False
         try:
             with db_conn() as conn:
@@ -411,9 +548,37 @@ class ValidationService:
                     *rule.to_insert_params(),
                 )
                 conn.commit()
+                LogsService.log_event(
+                    severity="INFO",
+                    message=f"Validation rule {rule.rule_code} saved.",
+                    event_type="validation.rule.saved",
+                    source_module="services.validation_service.add_validation_rule",
+                    validation_context=f"{rule.table}.{rule.column}",
+                    rule_code=rule.rule_code,
+                    table_name=rule.table,
+                    column_name=rule.column,
+                    payload={
+                        "rule_params": rule.rule_params,
+                        "allow_null": rule.allow_null,
+                        "is_active": rule.is_active,
+                        "error_code": rule.error_code,
+                        "comparison_column": rule.comparison_column,
+                    },
+                )
                 return True
         except Exception as e:
             logger.error("add_validation_rule failed: %s", e)
+            LogsService.capture_exception(
+                message="Saving validation rule failed.",
+                source_module="services.validation_service.add_validation_rule",
+                exception=e,
+                event_type="validation.rule.failed",
+                payload={
+                    "table": getattr(rule, "table", rule_or_table),
+                    "column": getattr(rule, "column", column),
+                    "rule_code": getattr(rule, "rule_code", rule_code),
+                },
+            )
             return False
 
     @staticmethod
@@ -444,6 +609,13 @@ class ValidationService:
                 conn.commit()
         except Exception as e:
             logger.error("bulk_import_rules failed: %s", e)
+            LogsService.capture_exception(
+                message="Bulk rule import failed.",
+                source_module="services.validation_service.bulk_import_rules",
+                exception=e,
+                event_type="validation.rule.import.failed",
+                payload={"row_count": len(df) if hasattr(df, "__len__") else None},
+            )
         return success
 
     @staticmethod
