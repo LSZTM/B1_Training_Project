@@ -42,6 +42,10 @@ def render_sidebar():
             ("Run Validation","pages/2_Runs.py"),
             ("Error Explorer","pages/3_Errors.py"),
             ("Validation Rules","pages/4_Rules.py"),
+<<<<<<< HEAD
+=======
+            ("Validation Logs","pages/5_Logs.py"),
+>>>>>>> 40e8004 (Add validation logs console and structured logging backend)
         ]
 
         current = st.query_params.get("page", "")
@@ -91,4 +95,8 @@ def render_sidebar():
 
         if st.button("🔌  Reconnect DB", use_container_width=True):
             st.session_state.boot_complete = False
+<<<<<<< HEAD
             st.rerun()
+=======
+            st.rerun()
+>>>>>>> 40e8004 (Add validation logs console and structured logging backend)
