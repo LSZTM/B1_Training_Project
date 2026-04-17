@@ -3,8 +3,6 @@ import streamlit as st
 
 def render_sidebar():
     with st.sidebar:
-
-        # ── Brand ─────────────────────────────────────────────────────────────
         st.markdown(
             """
             <div class="dg-brand">
@@ -15,11 +13,15 @@ def render_sidebar():
             unsafe_allow_html=True,
         )
 
-        # ── Connection status ─────────────────────────────────────────────────
         connected = st.session_state.get("connected", False)
         status_class = "verified" if connected else "locked"
-        status_text  = "Connected" if connected else "Disconnected"
-        db_label     = "QUERY_PRACTICE" if connected else "No database link"
+        status_text = "Connected" if connected else "Disconnected"
+
+        # Dynamic database label
+        db_label = st.session_state.get("db_selected_database", "No database link")
+        server_label = st.session_state.get("db_selected_server", "")
+        if not connected:
+            db_label = "No database link"
 
         st.markdown(
             f"""
@@ -34,37 +36,29 @@ def render_sidebar():
             unsafe_allow_html=True,
         )
 
-        # ── Navigation ────────────────────────────────────────────────────────
+        if connected and server_label:
+            st.caption(f"Server: `{server_label}`")
+
         st.markdown('<div class="dg-nav-label">Navigation</div>', unsafe_allow_html=True)
 
         pages = [
-            ("Overview",    "pages/1_Overview.py"),
-            ("Run Validation","pages/2_Runs.py"),
-            ("Error Explorer","pages/3_Errors.py"),
-            ("Validation Rules","pages/4_Rules.py"),
-<<<<<<< HEAD
-=======
-            ("Validation Logs","pages/5_Logs.py"),
->>>>>>> 40e8004 (Add validation logs console and structured logging backend)
+            ("Overview", "pages/1_Overview.py"),
+            ("Run Validation", "pages/2_Runs.py"),
+            ("Error Explorer", "pages/3_Errors.py"),
+            ("Validation Rules", "pages/4_Rules.py"),
+            ("Validation Logs", "pages/5_Logs.py"),
         ]
 
-        current = st.query_params.get("page", "")
         for label, path in pages:
-            active = "active" if path in current else ""
-            # Use native buttons — styling handled by CSS
             if st.button(label, use_container_width=True, key=f"nav_{path}"):
                 st.switch_page(path)
 
-        # ── Rule Registry ─────────────────────────────────────────────────────
         try:
             from services.validation_service import ValidationService
-            rules_df = ValidationService.get_error_codes()
-            rule_count    = len(rules_df) if not rules_df.empty else 0
-            context_count = (
-                rules_df["context"].nunique()
-                if not rules_df.empty and "context" in rules_df.columns
-                else 0
-            )
+
+            rule_values = ValidationService.get_error_codes()
+            rule_count = len(rule_values) if rule_values else 0
+            context_count = 0
         except Exception:
             rule_count, context_count = 0, 0
 
@@ -87,16 +81,16 @@ def render_sidebar():
             unsafe_allow_html=True,
         )
 
-        # ── System controls ───────────────────────────────────────────────────
         st.markdown('<div class="dg-nav-label">System</div>', unsafe_allow_html=True)
 
-        if st.button("↺  Refresh App", use_container_width=True):
+        if st.button("🔄 Change Database", use_container_width=True):
+            st.session_state.db_setup_mode = True
+            st.session_state.redirected = False
+            st.switch_page("main.py")
+
+        if st.button("Refresh App", use_container_width=True):
             st.rerun()
 
-        if st.button("🔌  Reconnect DB", use_container_width=True):
+        if st.button("Reconnect DB", use_container_width=True):
             st.session_state.boot_complete = False
-<<<<<<< HEAD
             st.rerun()
-=======
-            st.rerun()
->>>>>>> 40e8004 (Add validation logs console and structured logging backend)

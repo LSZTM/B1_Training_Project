@@ -17,37 +17,37 @@ def load_css():
         ───────────────────────────────────────────────────────────── */
         :root {
             /* Surface layers */
-            --bg-base:        #090b10;
-            --bg-raised:      #0e1018;
-            --bg-elevated:    #131620;
-            --bg-overlay:     #181c2a;
-            --bg-hover:       #1c2133;
+            --bg-base:        #040507;
+            --bg-raised:      #0b0e14;
+            --bg-elevated:    #11141b;
+            --bg-overlay:     #181c25;
+            --bg-hover:       #1e232e;
 
             /* Borders */
-            --border-subtle:  #1a1e2e;
-            --border-default: #222638;
-            --border-accent:  #2e3450;
+            --border-subtle:  #141820;
+            --border-default: #1c222d;
+            --border-accent:  #3b4a6b;
 
             /* Text */
-            --text-primary:   #eaedf5;
-            --text-secondary: #8b91aa;
-            --text-muted:     #454d68;
-            --text-disabled:  #2e3450;
+            --text-primary:   #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted:     #475569;
+            --text-disabled:  #1e293b;
 
-            /* Accent — electric indigo */
-            --accent:         #4f6fff;
-            --accent-dim:     rgba(79, 111, 255, 0.15);
-            --accent-glow:    rgba(79, 111, 255, 0.08);
+            /* Accent — Electric Indigo */
+            --accent:         #6366f1;
+            --accent-dim:     rgba(99, 102, 241, 0.12);
+            --accent-glow:    rgba(99, 102, 241, 0.06);
 
             /* Semantic */
-            --success:        #2ecc71;
-            --success-dim:    rgba(46, 204, 113, 0.12);
-            --warning:        #f0a500;
-            --warning-dim:    rgba(240, 165, 0, 0.12);
-            --danger:         #e04060;
-            --danger-dim:     rgba(224, 64, 96, 0.12);
-            --info:           #38bdf8;
-            --info-dim:       rgba(56, 189, 248, 0.12);
+            --success:        #06b6d4; /* Cyber Cyan */
+            --success-dim:    rgba(6, 182, 212, 0.1);
+            --warning:        #f59e0b; /* Amber */
+            --warning-dim:    rgba(245, 158, 11, 0.1);
+            --danger:         #f43f5e; /* Rose 500 */
+            --danger-dim:     rgba(244, 63, 94, 0.12);
+            --info:           #0ea5e9; /* Sky */
+            --info-dim:       rgba(14, 165, 233, 0.1);
 
             /* Typography */
             --font-display:   'Syne', sans-serif;
@@ -55,15 +55,16 @@ def load_css():
             --font-mono:      'DM Mono', monospace;
 
             /* Radius */
-            --radius-sm:      4px;
-            --radius-md:      8px;
-            --radius-lg:      12px;
-            --radius-xl:      16px;
+            --radius-sm:      6px;
+            --radius-md:      10px;
+            --radius-lg:      14px;
+            --radius-xl:      20px;
 
-            /* Shadows */
-            --shadow-sm:      0 1px 3px rgba(0,0,0,0.5);
-            --shadow-md:      0 4px 16px rgba(0,0,0,0.4);
-            --shadow-lg:      0 8px 32px rgba(0,0,0,0.5);
+            /* Shadows & Glows */
+            --shadow-sm:      0 1px 3px rgba(0,0,0,0.6);
+            --shadow-md:      0 4px 20px rgba(0,0,0,0.5);
+            --shadow-lg:      0 8px 32px rgba(0,0,0,0.6);
+            --glow-accent:    0 0 15px rgba(99, 102, 241, 0.2);
         }
 
         /* ─────────────────────────────────────────────────────────────
@@ -81,9 +82,15 @@ def load_css():
         /* ─────────────────────────────────────────────────────────────
            SIDEBAR
         ───────────────────────────────────────────────────────────── */
+        /* --- Sidebar --- */
         [data-testid="stSidebar"] {
             background-color: var(--bg-raised) !important;
             border-right: 1px solid var(--border-subtle) !important;
+        }
+
+        /* Hide default Streamlit navigation */
+        [data-testid="stSidebarNav"] {
+            display: none !important;
         }
 
         [data-testid="stSidebar"] .block-container {
@@ -677,15 +684,308 @@ def load_css():
         /* ─────────────────────────────────────────────────────────────
            GLOBAL CHROME
         ───────────────────────────────────────────────────────────── */
+        [data-testid="stHeader"] {
+            background-color: rgba(4, 5, 7, 0.7) !important;
+            backdrop-filter: blur(8px) !important;
+            border: none !important;
+            z-index: 999999 !important;
+            height: 48px !important;
+        }
+
+        /* Sidebar Toggle Custom Styling */
+        [data-testid="stSidebarCollapseButton"],
+        [data-testid="stSidebarExpandButton"] {
+            color: var(--accent) !important;
+            background: var(--bg-overlay) !important;
+            border: 1px solid var(--accent) !important;
+            border-radius: var(--radius-sm) !important;
+            transition: all 0.2s ease !important;
+            z-index: 10000000 !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            display: flex !important;
+            width: 32px !important;
+            height: 32px !important;
+            margin-top: 8px !important;
+            margin-left: 8px !important;
+        }
+
+        [data-testid="stSidebarCollapseButton"]:hover,
+        [data-testid="stSidebarExpandButton"]:hover {
+            color: var(--text-primary) !important;
+            border-color: var(--accent) !important;
+            box-shadow: var(--glow-accent) !important;
+        }
+
+        /* Ensure buttons remain clickable */
+        [data-testid="stToolbar"],
+        [data-testid="stDecoration"],
+        [data-testid="stStatusWidget"] {
+            opacity: 0 !important;
+            /* pointer-events: none !important; */ /* Removed to prevent blocking header */
+        }
+
         #MainMenu  { visibility: hidden; }
         footer     { visibility: hidden; }
-        header     { visibility: hidden; }
 
         /* Scrollbar */
         ::-webkit-scrollbar       { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: var(--bg-base); }
         ::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 99px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--border-accent); }
+
+        /* ─────────────────────────────────────────────────────────────
+           DARK THEME — CHARTS & PLOTS
+        ───────────────────────────────────────────────────────────── */
+        /* Plotly charts */
+        .js-plotly-plot .plotly,
+        .js-plotly-plot .plotly .main-svg,
+        .js-plotly-plot .plotly .bg {
+            background-color: var(--bg-raised) !important;
+            fill: var(--bg-raised) !important;
+        }
+
+        .js-plotly-plot .plotly .gridlayer line,
+        .js-plotly-plot .plotly .zerolinelayer line {
+            stroke: var(--border-subtle) !important;
+        }
+
+        .js-plotly-plot .plotly .xtick text,
+        .js-plotly-plot .plotly .ytick text,
+        .js-plotly-plot .plotly .g-xtitle text,
+        .js-plotly-plot .plotly .g-ytitle text {
+            fill: var(--text-muted) !important;
+        }
+
+        /* Vega / Altair / st.bar_chart / st.line_chart */
+        .vega-embed,
+        .vega-embed .chart-wrapper {
+            background-color: var(--bg-raised) !important;
+        }
+
+        .vega-embed canvas {
+            border-radius: var(--radius-md);
+        }
+
+        .vega-embed summary {
+            display: none !important;
+        }
+
+        /* Generic Streamlit chart wrapper */
+        [data-testid="stArrowVegaLiteChart"],
+        [data-testid="stVegaLiteChart"] {
+            background-color: var(--bg-raised) !important;
+            border: 1px solid var(--border-subtle) !important;
+            border-radius: var(--radius-lg) !important;
+            padding: 12px !important;
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           DARK THEME — DATAFRAMES & TABLES
+        ───────────────────────────────────────────────────────────── */
+        /* Glide Data Grid (st.dataframe / st.data_editor) */
+        [data-testid="stDataFrame"] > div {
+            background-color: var(--bg-raised) !important;
+        }
+
+        [data-testid="stDataFrame"] canvas {
+            border-radius: var(--radius-md);
+        }
+
+        /* Markdown tables */
+        .stMarkdown table,
+        .element-container table {
+            background-color: var(--bg-raised) !important;
+            border-collapse: collapse !important;
+            width: 100% !important;
+            border-radius: var(--radius-md) !important;
+            overflow: hidden !important;
+        }
+
+        .stMarkdown table th,
+        .element-container table th {
+            background-color: var(--bg-overlay) !important;
+            color: var(--text-secondary) !important;
+            font-family: var(--font-mono) !important;
+            font-size: 0.72rem !important;
+            font-weight: 500 !important;
+            letter-spacing: 0.08em !important;
+            text-transform: uppercase !important;
+            padding: 10px 14px !important;
+            border-bottom: 1px solid var(--border-default) !important;
+        }
+
+        .stMarkdown table td,
+        .element-container table td {
+            background-color: var(--bg-raised) !important;
+            color: var(--text-secondary) !important;
+            font-size: 0.82rem !important;
+            padding: 8px 14px !important;
+            border-bottom: 1px solid var(--border-subtle) !important;
+        }
+
+        .stMarkdown table tr:hover td,
+        .element-container table tr:hover td {
+            background-color: var(--bg-elevated) !important;
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           DARK THEME — SELECTBOX / DROPDOWN POPOVER
+        ───────────────────────────────────────────────────────────── */
+        /* Dropdown popover / listbox container */
+        div[data-baseweb="popover"] {
+            background-color: var(--bg-elevated) !important;
+            border: 1px solid var(--border-default) !important;
+            border-radius: var(--radius-md) !important;
+            box-shadow: var(--shadow-lg) !important;
+        }
+
+        div[data-baseweb="popover"] > div {
+            background-color: var(--bg-elevated) !important;
+        }
+
+        /* Listbox inside the popover */
+        ul[role="listbox"] {
+            background-color: var(--bg-elevated) !important;
+            border: none !important;
+        }
+
+        ul[role="listbox"] li {
+            background-color: var(--bg-elevated) !important;
+            color: var(--text-secondary) !important;
+            font-size: 0.85rem !important;
+        }
+
+        ul[role="listbox"] li:hover {
+            background-color: var(--accent-dim) !important;
+            color: var(--text-primary) !important;
+        }
+
+        ul[role="listbox"] li[aria-selected="true"] {
+            background-color: var(--accent-dim) !important;
+            color: var(--accent) !important;
+            font-weight: 500 !important;
+        }
+
+        /* The select input control itself */
+        div[data-baseweb="select"] > div {
+            background-color: var(--bg-base) !important;
+            border-color: var(--border-default) !important;
+        }
+
+        div[data-baseweb="select"] > div:hover {
+            border-color: var(--border-accent) !important;
+        }
+
+        /* Search input inside select */
+        div[data-baseweb="select"] input {
+            color: var(--text-primary) !important;
+            background-color: transparent !important;
+        }
+
+        /* Tags inside multiselect */
+        span[data-baseweb="tag"] {
+            background-color: var(--accent-dim) !important;
+            color: var(--accent) !important;
+            border: 1px solid rgba(99, 102, 241, 0.3) !important;
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           DARK THEME — RADIO BUTTONS & CHECKBOXES
+        ───────────────────────────────────────────────────────────── */
+        .stRadio label,
+        .stMultiSelect label {
+            font-family: var(--font-mono) !important;
+            font-size: 0.65rem !important;
+            font-weight: 500 !important;
+            letter-spacing: 0.14em !important;
+            text-transform: uppercase !important;
+            color: var(--text-muted) !important;
+        }
+
+        .stRadio [role="radiogroup"] {
+            gap: 4px !important;
+        }
+
+        .stRadio [role="radiogroup"] label {
+            font-family: var(--font-body) !important;
+            font-size: 0.82rem !important;
+            text-transform: none !important;
+            letter-spacing: normal !important;
+            color: var(--text-secondary) !important;
+            background-color: var(--bg-base) !important;
+            border: 1px solid var(--border-default) !important;
+            border-radius: var(--radius-md) !important;
+            padding: 8px 14px !important;
+            transition: all 0.15s ease !important;
+        }
+
+        .stRadio [role="radiogroup"] label:hover {
+            border-color: var(--border-accent) !important;
+            background-color: var(--bg-elevated) !important;
+        }
+
+        .stRadio [role="radiogroup"] label[data-checked="true"],
+        .stRadio [role="radiogroup"] label:has(input:checked) {
+            border-color: var(--accent) !important;
+            background-color: var(--accent-dim) !important;
+            color: var(--text-primary) !important;
+        }
+
+        /* Checkbox styling */
+        .stCheckbox [data-testid="stCheckbox"] label span {
+            color: var(--text-secondary) !important;
+            font-size: 0.82rem !important;
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           DARK THEME — TOOLTIPS, TOASTS, CONTAINERS
+        ───────────────────────────────────────────────────────────── */
+        /* Streamlit tooltips */
+        [data-testid="stTooltipContent"] {
+            background-color: var(--bg-overlay) !important;
+            color: var(--text-secondary) !important;
+            border: 1px solid var(--border-default) !important;
+            border-radius: var(--radius-md) !important;
+        }
+
+        /* Container borders */
+        [data-testid="stVerticalBlock"] > div[data-testid="element-container"] > div > div[style*="border"] {
+            border-color: var(--border-subtle) !important;
+        }
+
+        /* st.container(border=True) */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            background-color: var(--bg-raised) !important;
+            border: 1px solid var(--border-subtle) !important;
+            border-radius: var(--radius-lg) !important;
+        }
+
+        /* st.info / st.success / st.warning / st.error boxes */
+        [data-testid="stNotification"] {
+            background-color: var(--bg-elevated) !important;
+            border-radius: var(--radius-md) !important;
+        }
+
+        /* st.caption */
+        .stCaption, [data-testid="stCaptionContainer"] {
+            color: var(--text-muted) !important;
+        }
+
+        /* st.code */
+        .stCodeBlock, code {
+            background-color: var(--bg-overlay) !important;
+            color: var(--text-secondary) !important;
+            border-radius: var(--radius-sm) !important;
+        }
+
+        /* JSON viewer */
+        [data-testid="stJson"] {
+            background-color: var(--bg-raised) !important;
+            border: 1px solid var(--border-subtle) !important;
+            border-radius: var(--radius-md) !important;
+        }
+
         </style>
         """,
         unsafe_allow_html=True,
