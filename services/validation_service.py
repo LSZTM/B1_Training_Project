@@ -216,6 +216,11 @@ class ValidationService:
         try:
             with db_conn() as conn:
                 cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM validation_rules WHERE is_active=1")
+                active_rules_count = cursor.fetchone()[0]
+                if active_rules_count == 0:
+                    ValidationService.auto_apply_safe_rules()
+
                 used_wrapper = False
 
                 try:
@@ -303,6 +308,32 @@ class ValidationService:
                 payload={"procedure": "dbo.execute_all_validations_with_logging"},
             )
             return {"success": False, "error": str(e)}
+
+    @staticmethod
+    def auto_apply_safe_rules():
+        """Automatically scans all tables and columns to apply the highest-confidence rules."""
+        tables = ValidationService.get_tables()
+        implementation_map = ValidationService.get_rule_implementation_status()
+        for table in tables:
+            columns = ValidationService.get_table_columns(table)
+            for column in columns:
+                suggestions = ValidationService.suggest_rules(table, column, sample_size=100)
+                best_suggestion = next((s for s in suggestions if s["confidence"] >= 0.82 and s["category"] in {"type", "format", "range"} and implementation_map.get(s["rule_code"], True)), None)
+                if best_suggestion:
+                    auto_error_code = f"AUTO_{best_suggestion['rule_code'].upper()[:20]}"
+                    suggested_rule = Rule.from_signal_map(
+                        table=table,
+                        column=column,
+                        rule_code=best_suggestion["rule_code"],
+                        rule_signal_map=ValidationService.RULE_SIGNAL_MAP,
+                        implementation_map=implementation_map,
+                        rule_params=best_suggestion["rule_params"],
+                        allow_null=best_suggestion["rule_code"] != "NOT_NULL",
+                        is_active=True,
+                        error_code=auto_error_code,
+                        comparison_column=None,
+                    )
+                    ValidationService.add_validation_rule(suggested_rule)
 
     @staticmethod
     def get_run_history(limit=100):
@@ -714,11 +745,13 @@ class ValidationService:
 
         if null_rate >= 0.90:
             category = "sparse"
+        elif data_type not in ValidationService.STRING_TYPES:
+            category = "typed"
         elif data_type in ValidationService.STRING_TYPES and avg_length > 40 and top_match_rate < 0.35:
             category = "free_text"
         elif top_match_rate >= 0.80:
             category = "typed"
-        elif top_match_rate >= 0.40:
+        elif top_match_rate >= 0.20:
             category = "mixed"
         else:
             category = "opaque"
