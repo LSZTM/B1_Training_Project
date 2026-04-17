@@ -1,2 +1,4 @@
 unixodbc-dev
 unixodbc
+g++
+python3-dev
