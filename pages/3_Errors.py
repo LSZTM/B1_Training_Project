@@ -1,6 +1,6 @@
 from components.sidebar import render_sidebar
 render_sidebar()
-
+import pandas as pd
 import streamlit as st
 from services.validation_service import ValidationService
 from utils.styles import load_css
@@ -33,11 +33,19 @@ st.markdown('<div class="dg-section-label">Filters</div>', unsafe_allow_html=Tru
 tables  = ValidationService.get_tables()
 code_reference = ValidationService.get_error_code_reference()
 codes = code_reference["error_code"].tolist() if not code_reference.empty else ValidationService.get_error_codes()
-code_label_map = {
-    row["error_code"]: f"{row['error_code']} — {row['description']}"
-    for _, row in code_reference.fillna("").iterrows()
-    if row.get("description")
-}
+
+# Create a robust mapping with fallbacks for missing descriptions in the master table
+code_label_map = {}
+for _, row in code_reference.iterrows():
+    code = row["error_code"]
+    desc = row["description"]
+    
+    if pd.isna(desc) or desc == "":
+        # Fallback: Format the code itself if description is missing
+        friendly_name = code.replace("A_", "").replace("_", " ").capitalize()
+        code_label_map[code] = f"{code} — {friendly_name} Validation"
+    else:
+        code_label_map[code] = f"{code} — {desc}"
 
 c1, c2, c3 = st.columns(3, gap="medium")
 

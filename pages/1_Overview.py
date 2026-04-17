@@ -2,6 +2,8 @@ from components.sidebar import render_sidebar
 render_sidebar()
 
 import streamlit as st
+import pandas as pd
+import altair as alt
 from services.validation_service import ValidationService
 from utils.styles import load_css
 
@@ -59,7 +61,7 @@ records    = metrics.get("records_scanned", 0)
 errors     = metrics.get("errors", 0)
 rules      = metrics.get("rules", 0)
 minutes    = metrics.get("minutes_ago", 0)
-error_rate = errors / max(records, 1) * 100
+error_rate = min(100.0, errors / max(records, 1) * 100)
 
 health       = "Healthy"  if error_rate < 1 else "Warning"  if error_rate < 5 else "Critical"
 health_var   = "success"  if health == "Healthy" else "warning" if health == "Warning" else "error"
@@ -131,10 +133,24 @@ with c1:
     )
     table_summary = ValidationService.get_error_summary_by_table()
     if not table_summary.empty:
-        st.bar_chart(
-            table_summary.set_index("table_name")["error_count"],
-            height=220,
-        )
+        chart = alt.Chart(table_summary).mark_bar(
+            cornerRadiusTopLeft=4,
+            cornerRadiusTopRight=4,
+            color=alt.Gradient(
+                gradient='linear',
+                stops=[alt.GradientStop(color='#6366f1', offset=0),
+                       alt.GradientStop(color='#818cf8', offset=1)],
+                x1=1, x2=1, y1=1, y2=0
+            )
+        ).encode(
+            x=alt.X('table_name:N', title='Table', sort='-y', axis=alt.Axis(labelAngle=-45, labelColor='#94a3b8', titleColor='#475569')),
+            y=alt.Y('error_count:Q', title='Errors', axis=alt.Axis(labelColor='#94a3b8', titleColor='#475569')),
+            tooltip=['table_name', 'error_count', 'affected_records']
+        ).configure_view(
+            strokeOpacity=0
+        ).properties(height=240)
+        
+        st.altair_chart(chart, use_container_width=True)
     else:
         st.markdown(
             '<div class="dg-badge success">No error data available</div>',
@@ -168,11 +184,25 @@ with c2:
         st.caption("No run history available for trend window.")
     else:
         chart_df = trend_df.copy()
-        chart_df["run_timestamp"] = chart_df["run_timestamp"].astype(str)
-        st.line_chart(
-            chart_df.set_index("run_timestamp")["error_rate"],
-            height=220,
-        )
+        chart_df["run_timestamp"] = pd.to_datetime(chart_df["run_timestamp"])
+        
+        line = alt.Chart(chart_df).mark_area(
+            line={'color': '#6366f1', 'strokeWidth': 2},
+            color=alt.Gradient(
+                gradient='linear',
+                stops=[alt.GradientStop(color='rgba(99, 102, 241, 0.2)', offset=0),
+                       alt.GradientStop(color='rgba(99, 102, 241, 0)', offset=1)],
+                x1=1, x2=1, y1=0, y2=1
+            )
+        ).encode(
+            x=alt.X('run_timestamp:T', title='Time', axis=alt.Axis(labelColor='#94a3b8', titleColor='#475569')),
+            y=alt.Y('error_rate:Q', title='Error Rate', axis=alt.Axis(labelColor='#94a3b8', titleColor='#475569', format='.1%')),
+            tooltip=['run_timestamp', alt.Tooltip('error_rate', format='.2%')]
+        ).configure_view(
+            strokeOpacity=0
+        ).properties(height=240)
+        
+        st.altair_chart(line, use_container_width=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 

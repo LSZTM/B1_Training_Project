@@ -1,0 +1,100 @@
+-- Migration: Seed error_code_master with descriptions for all rules
+-- Date: 2026-04-13
+
+BEGIN TRANSACTION;
+
+-- Merge standard rules (Core codes)
+MERGE INTO dbo.error_code_master AS target
+USING (SELECT * FROM (VALUES 
+    ('NOT_NULL', 'Column must not be null.', 'B'),
+    ('is_digit', 'Whole number type validation.', 'B'),
+    ('is_decimal', 'Decimal numeric validation.', 'B'),
+    ('is_boolean', 'Boolean domain validation.', 'B'),
+    ('is_integer_string', 'String that should contain integer text.', 'B'),
+    ('IsEmail', 'Email address format.', 'B'),
+    ('is_phone_e164', 'E.164 phone format.', 'B'),
+    ('is_phone_us', 'US phone format.', 'B'),
+    ('IsDate', 'Date string format.', 'B'),
+    ('is_datetime', 'Datetime format.', 'B'),
+    ('is_time', 'Time format.', 'B'),
+    ('is_uuid', 'UUID format.', 'B'),
+    ('is_ssn', 'US SSN format.', 'B'),
+    ('is_postal_code_us', 'US postal code.', 'B'),
+    ('is_postal_code_uk', 'UK postal code.', 'B'),
+    ('is_ip_v4', 'IPv4 format.', 'B'),
+    ('is_ip_v6', 'IPv6 format.', 'B'),
+    ('is_url', 'HTTP/HTTPS URL.', 'B'),
+    ('is_credit_card', 'Credit card number format.', 'B'),
+    ('is_iban', 'IBAN format.', 'B'),
+    ('is_currency_code', 'ISO currency code.', 'B'),
+    ('is_country_code', 'ISO country code.', 'B'),
+    ('is_json', 'Valid JSON payload.', 'B'),
+    ('is_base64', 'Base64 text.', 'B'),
+    ('is_hex_color', 'Hex color code.', 'B'),
+    ('is_latitude', 'Latitude range check.', 'B'),
+    ('is_longitude', 'Longitude range check.', 'B'),
+    ('ALPHA_ONLY', 'Legacy alphabetic-only strings.', 'B'),
+    ('DATE_VALID', 'Legacy date string validation.', 'B'),
+    ('DIGITS_ONLY', 'Legacy digits-only strings.', 'B'),
+    ('LEN_EQ', 'Legacy fixed length check.', 'B'),
+    ('NUM_RANGE', 'Legacy numeric range check.', 'B'),
+    ('PAN_FORMAT', 'IT PAN card format.', 'B'),
+    ('PHONE_START', 'Specific mobile start pattern.', 'B')
+) AS s (error_code, description, table_scope)) AS source
+ON target.error_code = source.error_code
+WHEN MATCHED THEN 
+    UPDATE SET description = source.description
+WHEN NOT MATCHED THEN
+    INSERT (error_code, description, table_scope)
+    VALUES (source.error_code, source.description, source.table_scope);
+
+-- Also seed the A_ prefixed codes for auto-suggestions
+MERGE INTO dbo.error_code_master AS target
+USING (SELECT * FROM (VALUES 
+    ('A_NOT_NULL', 'Column must not be null.', 'B'),
+    ('A_IS_DIGIT', 'Whole number type validation.', 'B'),
+    ('A_IS_DECIMAL', 'Decimal numeric validation.', 'B'),
+    ('A_IS_BOOLEAN', 'Boolean domain validation.', 'B'),
+    ('A_IS_INTEGER_STRING', 'String that should contain integer text.', 'B'),
+    ('A_ISEMAIL', 'Email address format.', 'B'),
+    ('A_IS_PHONE_E164', 'E.164 phone format.', 'B'),
+    ('A_IS_PHONE_US', 'US phone format.', 'B'),
+    ('A_ISDATE', 'Date string format.', 'B'),
+    ('A_IS_DATETIME', 'Datetime format.', 'B'),
+    ('A_IS_TIME', 'Time format.', 'B'),
+    ('A_IS_UUID', 'UUID format.', 'B'),
+    ('A_IS_SSN', 'US SSN format.', 'B'),
+    ('A_IS_POSTAL_CODE_US', 'US postal code.', 'B'),
+    ('A_IS_POSTAL_CODE_UK', 'UK postal code.', 'B'),
+    ('A_IS_IP_V4', 'IPv4 format.', 'B'),
+    ('A_IS_IP_V6', 'IPv6 format.', 'B'),
+    ('A_IS_URL', 'HTTP/HTTPS URL.', 'B'),
+    ('A_IS_CREDIT_CARD', 'Credit card number format.', 'B'),
+    ('A_IS_IBAN', 'IBAN format.', 'B'),
+    ('A_IS_CURRENCY_CODE', 'ISO currency code.', 'B'),
+    ('A_IS_COUNTRY_CODE', 'ISO country code.', 'B'),
+    ('A_IS_JSON', 'Valid JSON payload.', 'B'),
+    ('A_IS_BASE64', 'Base64 text.', 'B'),
+    ('A_IS_HEX_COLOR', 'Hex color code.', 'B'),
+    ('A_IS_LATITUDE', 'Latitude range check.', 'B'),
+    ('A_IS_LONGITUDE', 'Longitude range check.', 'B'),
+    ('A_POSITIVE_ONLY', 'Values should be non-negative.', 'B'),
+    ('A_PERCENTAGE_RANGE', 'Percentage range 0-100.', 'B'),
+    ('A_AGE_RANGE', 'Age between 0 and 150.', 'B'),
+    ('A_YEAR_RANGE', 'Year between 1900 and 2100.', 'B'),
+    ('A_HASLENGTH', 'Max length aligns with schema.', 'B'),
+    ('A_MIN_LENGTH', 'Minimum practical string length.', 'B'),
+    ('A_EXACT_LENGTH', 'Fixed width CHAR length.', 'B'),
+    ('A_IS_IN_LIST', 'Allowed value list.', 'B'),
+    ('A_IS_UNIQUE', 'Values should be unique.', 'B'),
+    ('A_LUHN_CHECK', 'Luhn checksum.', 'B'),
+    ('A_IBAN_CHECKSUM', 'IBAN mod-97 checksum.', 'B')
+) AS s (error_code, description, table_scope)) AS source
+ON target.error_code = source.error_code
+WHEN MATCHED THEN 
+    UPDATE SET description = source.description
+WHEN NOT MATCHED THEN
+    INSERT (error_code, description, table_scope)
+    VALUES (source.error_code, source.description, source.table_scope);
+
+COMMIT TRANSACTION;

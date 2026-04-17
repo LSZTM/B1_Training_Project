@@ -147,8 +147,7 @@ def render_summary_cards(summary: dict):
             )
 
 
-def render_summary_fragment():
-    frame, metadata = load_logs_frame()
+def render_summary_fragment(frame, metadata):
     connected = bool(st.session_state.connected) and bool(metadata["connected"])
     summary = summarize_logs(frame, live_mode=st.session_state.logs_live_mode, connected=connected)
     st.markdown('<div class="dg-section-label">Current View</div>', unsafe_allow_html=True)
@@ -176,8 +175,7 @@ def render_summary_fragment():
         st.error(f"Live log connection is disconnected: {metadata['error']}")
 
 
-def render_workspace_fragment():
-    frame, metadata = load_logs_frame()
+def render_workspace_fragment(frame, metadata):
     connected = bool(st.session_state.connected) and bool(metadata["connected"])
     summary = summarize_logs(frame, live_mode=st.session_state.logs_live_mode, connected=connected)
 
@@ -206,11 +204,12 @@ def render_workspace_fragment():
     export_col, spacer = st.columns([1, 4])
     with export_col:
         st.download_button(
-            "Export current filtered logs",
+            "Export filtered logs",
             data=csv,
-            file_name="validation_logs_filtered.csv",
+            file_name="validation_logs.csv",
             mime="text/csv",
             use_container_width=True,
+            key="logs_export_btn",
         )
     with spacer:
         st.caption(
@@ -241,8 +240,18 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-summary_fragment = st.fragment(run_every="5s" if st.session_state.logs_live_mode else None)(render_summary_fragment)
-summary_fragment()
+@st.fragment(run_every="5s" if st.session_state.logs_live_mode else None)
+def render_combined_fragments():
+    try:
+        frame, metadata = load_logs_frame()
+        render_summary_fragment(frame, metadata)
+        
+        # Spacer to prevent section labels from overlapping if data is missing
+        st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
+        
+        render_workspace_fragment(frame, metadata)
+    except Exception as e:
+        st.error(f"Critical error in log observer: {e}")
 
 st.markdown('<div class="dg-section-label">Filters & Controls</div>', unsafe_allow_html=True)
 
@@ -308,5 +317,4 @@ with action_cols[0]:
         reset_logs_filters()
         st.rerun()
 
-workspace_fragment = st.fragment(run_every="5s" if st.session_state.logs_live_mode else None)(render_workspace_fragment)
-workspace_fragment()
+render_combined_fragments()

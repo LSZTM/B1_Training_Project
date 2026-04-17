@@ -48,10 +48,33 @@ with c1:
         st.rerun()
 
 with c2:
-    st.button("⊞  Selected Tables", use_container_width=True)
+    with st.popover("⊞  Selected Tables", use_container_width=True):
+        st.markdown("### Selective Validation")
+        tables = ValidationService.get_db_tables()
+        selected = st.multiselect("Select tables to validate", options=tables)
+        if st.button("Run Selected", type="primary", use_container_width=True):
+            if not selected:
+                st.warning("Select at least one table.")
+            else:
+                with st.spinner("Validating selective tables…"):
+                    result = ValidationService.run_all_validations(table_filter=",".join(selected))
+                if result.get("success"):
+                    st.success(f"Complete · {result.get('total_errors', 0)} errors")
+                    st.rerun()
+                else:
+                    st.error(result.get("error", "Failed"))
 
 with c3:
-    st.button("⏰  Schedule Run", use_container_width=True)
+    with st.popover("⏰  Schedule Run", use_container_width=True):
+        st.markdown("### Configure Schedule")
+        freq = st.selectbox("Frequency", ["Daily", "Weekly", "Monthly"])
+        time_sc = st.time_input("Scheduled Time")
+        sc_tables = st.multiselect("Tables (Optional)", options=ValidationService.get_db_tables(), key="sc_tables")
+        if st.button("Save Schedule", type="primary", use_container_width=True):
+            if ValidationService.save_schedule(freq, str(time_sc), sc_tables):
+                st.success("Schedule saved successfully.")
+            else:
+                st.error("Failed to save schedule.")
 
 st.markdown("<br>", unsafe_allow_html=True)
 

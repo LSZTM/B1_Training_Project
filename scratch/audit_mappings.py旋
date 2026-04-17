@@ -1,0 +1,54 @@
+import re
+import os
+
+# Helper to extract rule codes from RULE_SIGNAL_MAP in validation_service.py
+def get_mapped_codes():
+    path = "services/validation_service.py"
+    with open(path, "r") as f:
+        content = f.read()
+    # Find the RULE_SIGNAL_MAP dictionary
+    match = re.search(r"RULE_SIGNAL_MAP: dict\[str, dict\] = \{(.*?)\n    \}", content, re.DOTALL)
+    if not match:
+        return set()
+    map_content = match.group(1)
+    codes = re.findall(r'"([^"]+)": \{', map_content)
+    return set(codes)
+
+# Helper to list all vf_ functions
+def get_vf_functions():
+    funcs = []
+    path = "sql/functions"
+    for f in os.listdir(path):
+        if f.startswith("dbo.vf_") and f.endswith(".sql"):
+            funcs.append(f[len("dbo.vf_"):-4])
+    return set(funcs)
+
+# Helper to extract hardcoded codes from run_single_validation.sql
+def get_hardcoded_codes():
+    path = "sql/procedures/run_single_validation.sql"
+    with open(path, "r") as f:
+        content = f.read()
+    codes = re.findall(r"IF @rule_code = '([^']+)'", content)
+    codes += re.findall(r"ELSE IF @rule_code = '([^']+)'", content)
+    codes += re.findall(r"WHEN '([^']+)' THEN", content)
+    return set(codes)
+
+mapped = get_mapped_codes()
+vfs = get_vf_functions()
+hardcoded = get_hardcoded_codes()
+
+print(f"Mapped codes in Python: {len(mapped)}")
+print(f"VF Functions in DB: {len(vfs)}")
+print(f"Hardcoded codes in SQL: {len(hardcoded)}")
+
+print("\nFunctions NOT mapped in Python:")
+for f in sorted(vfs - mapped):
+    print(f"- {f}")
+
+print("\nHardcoded SQL codes NOT mapped in Python:")
+for f in sorted(hardcoded - mapped):
+    print(f"- {f}")
+
+print("\nPython codes NOT found as VF functions (might be hardcoded):")
+for f in sorted(mapped - vfs):
+    print(f"- {f}")

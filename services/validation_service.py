@@ -87,11 +87,7 @@ def execute_sql(query, params=None):
 
 
 class ValidationService:
-    NOT_IMPLEMENTED_RULES = {
-        "foreign_key_check",
-        "non_overlapping_range",
-        "date_not_holiday",
-    }
+    NOT_IMPLEMENTED_RULES = set()
     NUMERIC_TYPES = {
         "int", "bigint", "smallint", "tinyint", "decimal", "numeric", "float", "real", "money", "smallmoney"
     }
@@ -100,82 +96,69 @@ class ValidationService:
 
     RULE_SIGNAL_MAP: dict[str, dict] = {
         # TYPE
-        "NOT_NULL": {"keywords": ["required", "mandatory", "id", "key"], "data_types": ["*"], "detector": None, "params_fn": None, "base_conf": 0.82, "category": "type", "description": "Column must not be null."},
-        "is_digit": {"keywords": ["id", "qty", "count"], "data_types": ["int", "bigint", "smallint", "tinyint"], "detector": None, "params_fn": None, "base_conf": 0.85, "category": "type", "description": "Whole number type validation."},
-        "is_decimal": {"keywords": ["amount", "price", "cost"], "data_types": ["decimal", "numeric", "float", "real", "money"], "detector": None, "params_fn": None, "base_conf": 0.84, "category": "type", "description": "Decimal numeric validation."},
-        "is_boolean": {"keywords": ["is_", "flag", "active", "enabled"], "data_types": ["bit", "bool"], "detector": r"^(0|1|true|false|yes|no|t|f)$", "params_fn": None, "base_conf": 0.82, "category": "type", "description": "Boolean domain validation."},
-        "is_integer_string": {"keywords": ["id", "code", "number"], "data_types": ["varchar", "char"], "detector": r"^-?\d+$", "params_fn": None, "base_conf": 0.76, "category": "type", "description": "String that should contain integer text."},
+        "NOT_NULL": {"keywords": ["required", "mandatory", "id", "key"], "data_types": ["*"], "detector": None, "category": "type", "description": "Column must not be null.", "base_conf": 0.82},
+        "is_digit": {"keywords": ["id", "qty", "count", "number"], "data_types": ["int", "bigint", "smallint", "tinyint"], "detector": None, "category": "type", "description": "Whole number type validation.", "base_conf": 0.85},
+        "is_decimal": {"keywords": ["amount", "price", "cost", "sum", "total"], "data_types": ["decimal", "numeric", "float", "real", "money"], "detector": None, "category": "type", "description": "Decimal numeric validation.", "base_conf": 0.84},
+        "is_boolean": {"keywords": ["is_", "flag", "active", "enabled", "should"], "data_types": ["bit", "bool"], "detector": r"^(0|1|true|false|yes|no|t|f)$", "category": "type", "description": "Boolean domain validation.", "base_conf": 0.82},
+        "is_integer_string": {"keywords": ["id", "code", "number", "ref"], "data_types": ["varchar", "char"], "detector": r"^-?\d+$", "category": "type", "description": "String that should contain integer text.", "base_conf": 0.76},
         # FORMAT
-        "IsEmail": {"keywords": ["email", "mail"], "data_types": ["varchar", "nvarchar"], "detector": r"^(?=.{1,254}$)(?=.{1,64}@)[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$", "params_fn": None, "base_conf": 0.86, "category": "format", "description": "Email address format."},
-        "is_phone_e164": {"keywords": ["phone", "mobile", "tel"], "data_types": ["varchar", "nvarchar"], "detector": r"^\+[1-9]\d{7,14}$", "params_fn": None, "base_conf": 0.82, "category": "format", "description": "E.164 phone format."},
-        "is_phone_us": {"keywords": ["phone", "mobile", "tel"], "data_types": ["varchar", "nvarchar"], "detector": r"^(\(\d{3}\))?[\s-]?\d{3}[\s-]?\d{4}$", "params_fn": None, "base_conf": 0.8, "category": "format", "description": "US phone format."},
-        "IsDate": {"keywords": ["date", "dob", "birth"], "data_types": ["date", "datetime", "varchar"], "detector": r"^\d{4}-\d{2}-\d{2}$", "params_fn": None, "base_conf": 0.84, "category": "format", "description": "Date string format."},
-        "is_datetime": {"keywords": ["time", "timestamp", "created", "updated"], "data_types": ["datetime", "datetime2", "varchar"], "detector": r"^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}(:\d{2})?$", "params_fn": None, "base_conf": 0.83, "category": "format", "description": "Datetime format."},
-        "is_time": {"keywords": ["time", "hour"], "data_types": ["time", "varchar"], "detector": r"^\d{2}:\d{2}(:\d{2})?$", "params_fn": None, "base_conf": 0.8, "category": "format", "description": "Time format."},
-        "is_uuid": {"keywords": ["uuid", "guid", "id"], "data_types": ["varchar", "char"], "detector": r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "params_fn": None, "base_conf": 0.84, "category": "format", "description": "UUID format."},
-        "is_ssn": {"keywords": ["ssn", "social"], "data_types": ["varchar", "char"], "detector": r"^\d{3}-\d{2}-\d{4}$", "params_fn": None, "base_conf": 0.8, "category": "format", "description": "US SSN format."},
-        "is_postal_code_us": {"keywords": ["zip", "postal"], "data_types": ["varchar", "char"], "detector": r"^\d{5}(-\d{4})?$", "params_fn": None, "base_conf": 0.78, "category": "format", "description": "US postal code."},
-        "is_postal_code_uk": {"keywords": ["postcode", "postal"], "data_types": ["varchar", "char"], "detector": r"^[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}$", "params_fn": None, "base_conf": 0.78, "category": "format", "description": "UK postal code."},
-        "is_ip_v4": {"keywords": ["ip", "ipv4"], "data_types": ["varchar", "nvarchar"], "detector": r"^(\d{1,3}\.){3}\d{1,3}$", "params_fn": None, "base_conf": 0.77, "category": "format", "description": "IPv4 format."},
-        "is_ip_v6": {"keywords": ["ip", "ipv6"], "data_types": ["varchar", "nvarchar"], "detector": r"^([0-9a-f]{1,4}:){7}[0-9a-f]{1,4}$", "params_fn": None, "base_conf": 0.77, "category": "format", "description": "IPv6 format."},
-        "is_url": {"keywords": ["url", "link", "website"], "data_types": ["varchar", "nvarchar"], "detector": r"^https?://[^\s/$.?#].[^\s]*$", "params_fn": None, "base_conf": 0.8, "category": "format", "description": "HTTP/HTTPS URL."},
-        "is_credit_card": {"keywords": ["card", "credit", "debit", "pan"], "data_types": ["varchar", "char"], "detector": r"^\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}$", "params_fn": None, "base_conf": 0.76, "category": "format", "description": "Credit card number format."},
-        "is_iban": {"keywords": ["iban", "bank", "account"], "data_types": ["varchar", "char"], "detector": r"^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$", "params_fn": None, "base_conf": 0.77, "category": "format", "description": "IBAN format."},
-        "is_currency_code": {"keywords": ["currency", "ccy"], "data_types": ["varchar", "char"], "detector": r"^[A-Z]{3}$", "params_fn": None, "base_conf": 0.78, "category": "format", "description": "ISO currency code."},
-        "is_country_code": {"keywords": ["country", "nation"], "data_types": ["varchar", "char"], "detector": r"^[A-Z]{2}$", "params_fn": None, "base_conf": 0.78, "category": "format", "description": "ISO country code."},
-        "is_json": {"keywords": ["json", "payload", "metadata"], "data_types": ["varchar", "nvarchar", "text"], "detector": None, "params_fn": None, "base_conf": 0.78, "category": "format", "description": "Valid JSON payload."},
-        "is_base64": {"keywords": ["base64", "blob", "encoded"], "data_types": ["varchar", "nvarchar"], "detector": r"^[A-Za-z0-9+/]+={0,2}$", "params_fn": None, "base_conf": 0.75, "category": "format", "description": "Base64 text."},
-        "is_hex_color": {"keywords": ["color", "colour", "hex"], "data_types": ["varchar", "char"], "detector": r"^#[0-9A-Fa-f]{6}$", "params_fn": None, "base_conf": 0.76, "category": "format", "description": "Hex color code."},
-        "is_latitude": {"keywords": ["lat", "latitude"], "data_types": ["decimal", "float", "varchar"], "detector": None, "params_fn": None, "base_conf": 0.8, "category": "format", "description": "Latitude range check."},
-        "is_longitude": {"keywords": ["lon", "lng", "longitude"], "data_types": ["decimal", "float", "varchar"], "detector": None, "params_fn": None, "base_conf": 0.8, "category": "format", "description": "Longitude range check."},
+        "IsEmail": {"keywords": ["email", "mail", "contact"], "data_types": ["varchar", "nvarchar"], "detector": r"^(?=.{1,254}$)(?=.{1,64}@)[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$", "category": "format", "description": "Email address format.", "base_conf": 0.88},
+        "is_phone_e164": {"keywords": ["phone", "mobile", "tel", "sms"], "data_types": ["varchar", "nvarchar"], "detector": r"^\+[1-9]\d{7,14}$", "category": "format", "description": "E.164 phone format.", "base_conf": 0.82},
+        "is_phone_us": {"keywords": ["phone", "mobile", "tel", "office"], "data_types": ["varchar", "nvarchar"], "detector": r"^(\(\d{3}\))?[\s-]?\d{3}[\s-]?\d{4}$", "category": "format", "description": "US phone format.", "base_conf": 0.8},
+        "IsDate": {"keywords": ["date", "dob", "birth", "day"], "data_types": ["date", "datetime", "varchar"], "detector": r"^\d{4}-\d{2}-\d{2}$", "category": "format", "description": "Date string format.", "base_conf": 0.84},
+        "is_datetime": {"keywords": ["time", "timestamp", "created", "updated", "at"], "data_types": ["datetime", "datetime2", "varchar"], "detector": r"^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}(:\d{2})?$", "category": "format", "description": "Datetime format.", "base_conf": 0.83},
+        "is_time": {"keywords": ["time", "hour", "minute"], "data_types": ["time", "varchar"], "detector": r"^\d{2}:\d{2}(:\d{2})?$", "category": "format", "description": "Time format.", "base_conf": 0.8},
+        "is_uuid": {"keywords": ["uuid", "guid", "id", "sid"], "data_types": ["varchar", "char"], "detector": r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "category": "format", "description": "UUID format.", "base_conf": 0.88},
+        "is_ssn": {"keywords": ["ssn", "social", "taxid"], "data_types": ["varchar", "char"], "detector": r"^\d{3}-\d{2}-\d{4}$", "category": "format", "description": "US SSN format.", "base_conf": 0.82},
+        "is_postal_code_us": {"keywords": ["zip", "postal"], "data_types": ["varchar", "char"], "detector": r"^\d{5}(-\d{4})?$", "category": "format", "description": "US postal code.", "base_conf": 0.78},
+        "is_ip_v4": {"keywords": ["ip", "ipv4", "host", "address"], "data_types": ["varchar", "nvarchar"], "detector": r"^(\d{1,3}\.){3}\d{1,3}$", "category": "format", "description": "IPv4 format.", "base_conf": 0.77},
+        "is_url": {"keywords": ["url", "link", "website", "uri", "endpoint"], "data_types": ["varchar", "nvarchar"], "detector": r"^https?://[^\s/$.?#].[^\s]*$", "category": "format", "description": "HTTP/HTTPS URL.", "base_conf": 0.8},
+        "is_json": {"keywords": ["json", "payload", "metadata", "config", "data"], "data_types": ["varchar", "nvarchar", "text"], "structural": "json", "category": "format", "description": "Valid JSON payload.", "base_conf": 0.85},
+        "is_base64": {"keywords": ["base64", "blob", "encoded", "file"], "data_types": ["varchar", "nvarchar"], "structural": "base64", "category": "format", "description": "Base64 text.", "base_conf": 0.75},
         # RANGE
-        "min_value": {"keywords": ["min", "lower"], "data_types": ["int", "bigint", "smallint", "tinyint", "decimal", "numeric", "float", "real", "money"], "detector": None, "params_fn": "_params_p05", "base_conf": 0.82, "category": "range", "description": "Lower bound from sample p05."},
-        "max_value": {"keywords": ["max", "upper"], "data_types": ["int", "bigint", "smallint", "tinyint", "decimal", "numeric", "float", "real", "money"], "detector": None, "params_fn": "_params_p95", "base_conf": 0.82, "category": "range", "description": "Upper bound from sample p95."},
-        "date_not_in_future": {"keywords": ["date", "created", "posted"], "data_types": ["date", "datetime", "datetime2"], "detector": None, "params_fn": None, "base_conf": 0.8, "category": "range", "description": "Date cannot be in future."},
-        "date_not_before_epoch": {"keywords": ["date", "time", "epoch"], "data_types": ["date", "datetime", "datetime2"], "detector": None, "params_fn": None, "base_conf": 0.78, "category": "range", "description": "Date not before 1970-01-01."},
-        "date_min_bound": {"keywords": ["birth", "dob"], "data_types": ["date", "datetime", "datetime2"], "detector": None, "params_fn": "_params_date_min_bound", "base_conf": 0.86, "category": "range", "description": "Date min bound for birth dates."},
-        "positive_only": {"keywords": ["price", "amount", "salary", "qty", "quantity", "age"], "data_types": ["int", "bigint", "smallint", "tinyint", "decimal", "numeric", "float", "real", "money"], "detector": None, "params_fn": None, "base_conf": 0.84, "category": "range", "description": "Values should be non-negative."},
-        "percentage_range": {"keywords": ["rate", "pct", "percent", "ratio"], "data_types": ["decimal", "numeric", "float", "real"], "detector": None, "params_fn": None, "base_conf": 0.84, "category": "range", "description": "Percentage range 0-100."},
-        "age_range": {"keywords": ["age"], "data_types": ["int"], "detector": None, "params_fn": None, "base_conf": 0.87, "category": "range", "description": "Age between 0 and 150."},
-        "year_range": {"keywords": ["year", "yr"], "data_types": ["int", "smallint"], "detector": None, "params_fn": None, "base_conf": 0.86, "category": "range", "description": "Year between 1900 and 2100."},
-        # LENGTH
-        "HasLength": {"keywords": ["name", "desc", "text", "code"], "data_types": ["varchar", "nvarchar", "char", "text"], "detector": None, "params_fn": "_params_char_max", "base_conf": 0.88, "category": "integrity", "description": "Max length aligns with schema."},
-        "min_length": {"keywords": ["code", "key", "id", "ref"], "data_types": ["varchar", "nvarchar"], "detector": None, "params_fn": "_params_str_p05", "base_conf": 0.76, "category": "integrity", "description": "Minimum practical string length."},
-        "exact_length": {"keywords": ["code", "id", "ssn"], "data_types": ["char"], "detector": None, "params_fn": "_params_char_max", "base_conf": 0.88, "category": "integrity", "description": "Fixed width CHAR length."},
-        "no_whitespace_only": {"keywords": ["name", "code", "desc"], "data_types": ["varchar", "nvarchar", "text"], "detector": None, "params_fn": None, "base_conf": 0.74, "category": "hygiene", "description": "Reject whitespace-only strings."},
-        "no_leading_whitespace": {"keywords": ["name", "code", "desc"], "data_types": ["varchar", "nvarchar", "text"], "detector": None, "params_fn": None, "base_conf": 0.74, "category": "hygiene", "description": "Reject leading whitespace."},
-        "no_trailing_whitespace": {"keywords": ["name", "code", "desc"], "data_types": ["varchar", "nvarchar", "text"], "detector": None, "params_fn": None, "base_conf": 0.74, "category": "hygiene", "description": "Reject trailing whitespace."},
-        "no_internal_newline": {"keywords": ["code", "ref", "id"], "data_types": ["varchar", "nvarchar"], "detector": None, "params_fn": None, "base_conf": 0.7, "category": "hygiene", "description": "Reject newline characters."},
-        # INTEGRITY
-        "is_in_list": {"keywords": ["status", "type", "category"], "data_types": ["*"], "detector": None, "params_fn": "_params_in_list", "base_conf": 0.84, "category": "integrity", "description": "Allowed value list."},
-        "is_unique": {"keywords": ["id", "key", "code", "ref", "uuid", "guid"], "data_types": ["*"], "detector": None, "params_fn": None, "base_conf": 0.83, "category": "integrity", "description": "Values should be unique."},
-        "ColumnComparison": {"keywords": ["start", "end", "from", "to", "min", "max", "open", "close"], "data_types": ["*"], "detector": None, "params_fn": None, "base_conf": 0.68, "category": "integrity", "description": "Compare with another column."},
-        "not_equal_to": {"keywords": ["not", "exclude", "blocked"], "data_types": ["*"], "detector": None, "params_fn": None, "base_conf": 0.65, "category": "integrity", "description": "Not equal forbidden value."},
-        "foreign_key_check": {"keywords": ["_id", "_fk", "ref"], "data_types": ["int", "varchar"], "detector": None, "params_fn": None, "base_conf": 0.72, "category": "integrity", "description": "Foreign key existence check."},
+        "min_value": {"keywords": ["min", "lower", "start", "from"], "data_types": ["int", "bigint", "decimal", "float"], "category": "range", "description": "Lower bound from sample p05.", "base_conf": 0.82},
+        "max_value": {"keywords": ["max", "upper", "end", "to"], "data_types": ["int", "bigint", "decimal", "float"], "category": "range", "description": "Upper bound from sample p95.", "base_conf": 0.82},
+        "positive_only": {"keywords": ["price", "amount", "salary", "qty", "age", "balance"], "data_types": ["int", "decimal", "float", "money"], "category": "range", "description": "Values should be non-negative.", "base_conf": 0.84},
+        "percentage_range": {"keywords": ["rate", "pct", "percent", "ratio"], "data_types": ["decimal", "numeric", "float", "real"], "category": "range", "description": "Percentage range 0-100.", "base_conf": 0.84},
+        # LENGTH & INTEGRITY
+        "HasLength": {"keywords": ["name", "desc", "text", "code"], "data_types": ["varchar", "nvarchar", "char", "text"], "category": "integrity", "description": "Max length aligns with schema.", "base_conf": 0.88},
+        "min_length": {"keywords": ["code", "key", "id", "ref"], "data_types": ["varchar", "nvarchar"], "category": "integrity", "description": "Minimum practical string length.", "base_conf": 0.76},
+        "exact_length": {"keywords": ["code", "id", "ssn"], "data_types": ["char"], "category": "integrity", "description": "Fixed width CHAR length.", "base_conf": 0.88},
+        "is_in_list": {"keywords": ["status", "type", "category"], "data_types": ["*"], "category": "integrity", "description": "Allowed value list.", "base_conf": 0.84},
+        "is_unique": {"keywords": ["id", "key", "code", "ref", "uuid", "guid"], "data_types": ["*"], "category": "integrity", "description": "Values should be unique.", "base_conf": 0.83},
+        "ColumnComparison": {"keywords": ["start", "end", "from", "to", "min", "max"], "data_types": ["*"], "category": "integrity", "description": "Compare with another column.", "base_conf": 0.68},
+        "foreign_key_check": {"keywords": ["_id", "_fk", "ref"], "data_types": ["int", "varchar"], "category": "integrity", "description": "Foreign key existence check.", "base_conf": 0.72},
         # HYGIENE
-        "no_sql_injection": {"keywords": ["comment", "note", "text"], "data_types": ["varchar", "nvarchar", "text"], "detector": None, "params_fn": None, "base_conf": 0.76, "category": "hygiene", "description": "Block SQL injection patterns."},
-        "no_html_tags": {"keywords": ["comment", "note", "text"], "data_types": ["varchar", "nvarchar", "text"], "detector": None, "params_fn": None, "base_conf": 0.75, "category": "hygiene", "description": "Block HTML tags."},
-        "no_special_chars": {"keywords": ["name", "code", "ref"], "data_types": ["varchar", "nvarchar"], "detector": None, "params_fn": None, "base_conf": 0.73, "category": "hygiene", "description": "Allow alphanumerics and separators only."},
-        "encoding_check": {"keywords": ["text", "desc", "comment"], "data_types": ["varchar", "nvarchar", "text"], "detector": None, "params_fn": None, "base_conf": 0.7, "category": "hygiene", "description": "Detect encoding anomalies."},
-        "case_consistency": {"keywords": ["status", "type", "category", "code"], "data_types": ["varchar", "char"], "detector": None, "params_fn": None, "base_conf": 0.72, "category": "hygiene", "description": "Consistent letter case."},
-        "no_emoji": {"keywords": ["code", "id", "ref", "key"], "data_types": ["varchar", "nvarchar"], "detector": None, "params_fn": None, "base_conf": 0.72, "category": "hygiene", "description": "Disallow emoji characters."},
-        "trimmed": {"keywords": ["name", "code", "ref", "text"], "data_types": ["varchar", "nvarchar", "text"], "detector": None, "params_fn": None, "base_conf": 0.74, "category": "hygiene", "description": "Composite trim rule."},
-        # BUSINESS
-        "luhn_check": {"keywords": ["card", "credit", "debit", "pan"], "data_types": ["varchar", "char"], "detector": None, "params_fn": None, "base_conf": 0.82, "category": "business", "description": "Luhn checksum."},
-        "iban_checksum": {"keywords": ["iban", "bank", "account"], "data_types": ["varchar", "char"], "detector": None, "params_fn": None, "base_conf": 0.82, "category": "business", "description": "IBAN mod-97 checksum."},
-        "email_domain_whitelist": {"keywords": ["email", "mail"], "data_types": ["varchar", "nvarchar"], "detector": None, "params_fn": None, "base_conf": 0.68, "category": "business", "description": "Email domain whitelist."},
-        "date_not_weekend": {"keywords": ["business", "trading", "working"], "data_types": ["date", "datetime", "datetime2"], "detector": None, "params_fn": None, "base_conf": 0.72, "category": "business", "description": "Date must not be weekend."},
-        "date_not_holiday": {"keywords": ["business", "trading", "working"], "data_types": ["date", "datetime", "datetime2"], "detector": None, "params_fn": None, "base_conf": 0.68, "category": "business", "description": "Date must not be holiday."},
-        "non_overlapping_range": {"keywords": ["start", "end"], "data_types": ["date", "datetime", "datetime2"], "detector": None, "params_fn": None, "base_conf": 0.66, "category": "business", "description": "Ranges should not overlap."},
-        "positive_balance": {"keywords": ["balance", "credit", "debit"], "data_types": ["decimal", "money"], "detector": None, "params_fn": None, "base_conf": 0.8, "category": "business", "description": "Balance should be non-negative."},
-        "gender_code": {"keywords": ["gender", "sex"], "data_types": ["varchar", "char"], "detector": None, "params_fn": "_params_gender_codes", "base_conf": 0.86, "category": "business", "description": "Gender code domain."},
-        # SECURITY
-        "no_pii_pattern": {"keywords": ["note", "comment", "text"], "data_types": ["varchar", "nvarchar", "text"], "detector": None, "params_fn": None, "base_conf": 0.8, "category": "security", "description": "Block PII patterns in free text."},
-        "masked_value": {"keywords": ["password", "secret", "token", "key", "hash"], "data_types": ["varchar", "char"], "detector": None, "params_fn": None, "base_conf": 0.74, "category": "security", "description": "Value should appear masked."},
-        "no_cleartext_password": {"keywords": ["password", "pwd", "passwd", "secret"], "data_types": ["varchar", "nvarchar"], "detector": None, "params_fn": None, "base_conf": 0.88, "category": "security", "description": "Block cleartext password-like values."},
+        "no_sql_injection": {"keywords": ["comment", "note", "text", "query", "desc"], "data_types": ["varchar", "nvarchar", "text"], "category": "hygiene", "description": "Block SQL injection patterns.", "base_conf": 0.76},
+        "no_html_tags": {"keywords": ["comment", "note", "text", "body", "html"], "data_types": ["varchar", "nvarchar", "text"], "category": "hygiene", "description": "Block HTML tags.", "base_conf": 0.75},
+        "trimmed": {"keywords": ["name", "code", "ref", "text"], "data_types": ["varchar", "nvarchar", "text"], "category": "hygiene", "description": "Composite trim rule.", "base_conf": 0.74},
+        "encoding_check": {"keywords": ["text", "desc", "comment"], "data_types": ["varchar", "nvarchar", "text"], "category": "hygiene", "description": "Detect encoding anomalies.", "base_conf": 0.7},
+        # BUSINESS & SECURITY
+        "luhn_check": {"keywords": ["card", "credit", "debit", "pan"], "data_types": ["varchar", "char"], "category": "business", "description": "Luhn checksum.", "base_conf": 0.82},
+        "iban_checksum": {"keywords": ["iban", "bank", "account"], "data_types": ["varchar", "char"], "category": "business", "description": "IBAN mod-97 checksum.", "base_conf": 0.82},
+        "email_domain_whitelist": {"keywords": ["email", "mail"], "data_types": ["varchar", "nvarchar"], "category": "business", "description": "Email domain whitelist.", "base_conf": 0.68},
+        "date_not_weekend": {"keywords": ["business", "trading", "working"], "data_types": ["date", "datetime"], "category": "business", "description": "Date must not be weekend.", "base_conf": 0.72},
+        "date_not_holiday": {"keywords": ["business", "trading", "working"], "data_types": ["date", "datetime"], "category": "business", "description": "Date must not be holiday.", "base_conf": 0.68},
+        "non_overlapping_range": {"keywords": ["start", "end"], "data_types": ["date", "datetime"], "category": "business", "description": "Ranges should not overlap.", "base_conf": 0.66},
+        "positive_balance": {"keywords": ["balance", "credit", "debit"], "data_types": ["decimal", "money"], "category": "business", "description": "Balance should be non-negative.", "base_conf": 0.8},
+        "gender_code": {"keywords": ["gender", "sex"], "data_types": ["varchar", "char"], "category": "business", "description": "Gender code domain.", "base_conf": 0.86},
+        "no_pii_pattern": {"keywords": ["note", "comment", "text", "bio"], "data_types": ["varchar", "nvarchar", "text"], "category": "security", "description": "Block PII patterns in free text.", "base_conf": 0.8},
+        "masked_value": {"keywords": ["password", "secret", "token", "key", "hash", "pwd"], "data_types": ["varchar", "char"], "category": "security", "description": "Value should appear masked.", "base_conf": 0.74},
+        "no_cleartext_password": {"keywords": ["password", "pwd", "passwd", "secret"], "data_types": ["varchar", "nvarchar"], "category": "security", "description": "Block cleartext password-like values.", "base_conf": 0.88},
     }
 
     @staticmethod
+    def _get_table_columns(table_name: str) -> set[str]:
+        df = fetch_df(
+            """
+            SELECT LOWER(COLUMN_NAME) AS column_name
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = ?
+            """,
+            [table_name],
+        )
+        return set(df["column_name"].tolist()) if not df.empty else set()
+
     def _is_safe_identifier(value):
         return bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value or ""))
 
@@ -200,7 +183,7 @@ class ValidationService:
             current["rationale"] = f"{current['rationale']} | {rationale}"
 
     @staticmethod
-    def run_all_validations():
+    def run_all_validations(table_filter=None):
         correlation_id = str(uuid.uuid4())
         validation_id = str(uuid.uuid4())
         LogsService.log_event(
@@ -219,7 +202,7 @@ class ValidationService:
                 used_wrapper = False
 
                 try:
-                    cursor.execute("EXEC dbo.execute_all_validations_with_logging")
+                    cursor.execute("EXEC dbo.execute_all_validations_with_logging @table_filter=?", [table_filter])
                     row = cursor.fetchone()
                     conn.commit()
                     used_wrapper = True
@@ -227,7 +210,7 @@ class ValidationService:
                     if "execute_all_validations_with_logging" not in str(wrapper_error):
                         raise
 
-                    cursor.execute("EXEC dbo.execute_all_validations")
+                    cursor.execute("EXEC dbo.execute_all_validations @table_filter=?", [table_filter])
                     conn.commit()
                     cursor.execute(
                         """
@@ -306,9 +289,23 @@ class ValidationService:
 
     @staticmethod
     def get_run_history(limit=100):
+        columns = ValidationService._get_table_columns("validation_run_history")
+        if not columns:
+            return pd.DataFrame()
+        select_parts = [
+            "run_id" if "run_id" in columns else "CAST(NULL AS INT) AS run_id",
+            "table_name" if "table_name" in columns else "CAST(NULL AS NVARCHAR(128)) AS table_name",
+            "column_name" if "column_name" in columns else "CAST(NULL AS NVARCHAR(128)) AS column_name",
+            "rule_code" if "rule_code" in columns else "CAST(NULL AS NVARCHAR(64)) AS rule_code",
+            "total_records_scanned" if "total_records_scanned" in columns else "CAST(0 AS INT) AS total_records_scanned",
+            "total_errors" if "total_errors" in columns else "CAST(0 AS INT) AS total_errors",
+            "duration_ms" if "duration_ms" in columns else "CAST(0 AS INT) AS duration_ms",
+            "status" if "status" in columns else "CAST('unknown' AS NVARCHAR(32)) AS status",
+            "run_timestamp" if "run_timestamp" in columns else "GETDATE() AS run_timestamp",
+        ]
         return fetch_df(
-            """
-            SELECT TOP (?) run_id, table_name, column_name, rule_code, total_records_scanned, total_errors, duration_ms, status, run_timestamp
+            f"""
+            SELECT TOP (?) {", ".join(select_parts)}
             FROM validation_run_history
             ORDER BY run_id DESC
             """,
@@ -342,6 +339,8 @@ class ValidationService:
 
     @staticmethod
     def get_rule_results(run_id):
+        if not ValidationService._get_table_columns("validation_rule_results"):
+            return pd.DataFrame()
         return fetch_df(
             """
             SELECT result_id, run_id, table_name, column_name, rule_code, rows_scanned, pass_count, fail_count, pass_rate, run_timestamp
@@ -390,7 +389,7 @@ class ValidationService:
                 CAST(
                     CASE
                         WHEN ISNULL(total_records_scanned, 0) = 0 THEN 0
-                        ELSE 1.0 * total_errors / total_records_scanned
+                        ELSE (CASE WHEN 1.0 * total_errors / total_records_scanned > 1.0 THEN 1.0 ELSE 1.0 * total_errors / total_records_scanned END)
                     END
                     AS DECIMAL(10,4)
                 ) AS error_rate
@@ -481,6 +480,8 @@ class ValidationService:
         for code in ValidationService.NOT_IMPLEMENTED_RULES:
             status_map[code] = False
 
+        if not ValidationService._get_table_columns("rule_implementation_status"):
+            return status_map
         df = fetch_df("SELECT rule_code, is_implemented FROM dbo.rule_implementation_status")
         if not df.empty:
             for _, row in df.iterrows():
@@ -489,7 +490,21 @@ class ValidationService:
 
     @staticmethod
     def get_active_rules():
-        return fetch_df("""SELECT id, table_name, column_name, rule_code, rule_params, allow_null, is_active, error_code, comparison_column FROM temp_validation_config ORDER BY table_name, column_name""")
+        columns = ValidationService._get_table_columns("temp_validation_config")
+        if not columns:
+            return pd.DataFrame()
+        select_parts = [
+            "ROW_NUMBER() OVER (ORDER BY table_name, column_name, rule_code) AS id",
+            "table_name",
+            "column_name",
+            "rule_code",
+            "rule_params" if "rule_params" in columns else "CAST(NULL AS NVARCHAR(4000)) AS rule_params",
+            "allow_null" if "allow_null" in columns else "CAST(0 AS BIT) AS allow_null",
+            "is_active" if "is_active" in columns else "CAST(1 AS BIT) AS is_active",
+            "error_code" if "error_code" in columns else "CAST('E000' AS NVARCHAR(16)) AS error_code",
+            "comparison_column" if "comparison_column" in columns else "CAST(NULL AS NVARCHAR(128)) AS comparison_column",
+        ]
+        return fetch_df(f"""SELECT {", ".join(select_parts)} FROM temp_validation_config ORDER BY table_name, column_name""")
 
     @staticmethod
     def get_validation_rules():
@@ -497,11 +512,30 @@ class ValidationService:
 
     @staticmethod
     def toggle_rule(rule_id, is_active):
-        return execute_sql("UPDATE temp_validation_config SET is_active = ? WHERE id = ?", [int(bool(is_active)), rule_id])
+        if "is_active" not in ValidationService._get_table_columns("temp_validation_config"):
+            return False
+        return False
 
     @staticmethod
     def delete_rule(rule_id):
-        return execute_sql("DELETE FROM temp_validation_config WHERE id = ?", [rule_id])
+        return False
+
+    @staticmethod
+    def _ensure_error_code_registered(error_code: str, description: str = None):
+        """Ensures an error code exists in error_code_master with a friendly description."""
+        if not error_code:
+            return
+        try:
+            exists = fetch_value("SELECT COUNT(*) FROM dbo.error_code_master WHERE error_code = ?", [error_code])
+            if not exists:
+                desc = description or f"Validation failed for code: {error_code}"
+                execute_sql(
+                    "INSERT INTO dbo.error_code_master (error_code, description, table_scope) VALUES (?, ?, 'B')",
+                    [error_code, desc[:255]]
+                )
+                logger.info("Registered new error code in master table: %s", error_code)
+        except Exception as e:
+            logger.error("Failed to register error code %s: %s", error_code, e)
 
     @staticmethod
     def add_validation_rule(rule_or_table, column=None, rule_code=None, rule_params="", allow_null=False, is_active=True, error_code="E000", comparison_column=None):
@@ -536,16 +570,99 @@ class ValidationService:
                 payload={"error_code": rule.error_code},
             )
             return False
+
+        # Register code in master table if missing
+        ValidationService._ensure_error_code_registered(
+            rule.error_code, 
+            ValidationService.RULE_SIGNAL_MAP.get(rule.rule_code, {}).get("description")
+        )
+
         try:
             with db_conn() as conn:
                 cursor = conn.cursor()
-                cursor.execute(
+                columns = ValidationService._get_table_columns("temp_validation_config")
+                duplicate_count = fetch_value(
                     """
-                    INSERT INTO dbo.temp_validation_config
-                    (table_name, column_name, rule_code, rule_params, allow_null, is_active, error_code, comparison_column)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    SELECT COUNT(*)
+                    FROM dbo.temp_validation_config
+                    WHERE table_name = ? AND column_name = ? AND rule_code = ?
                     """,
-                    *rule.to_insert_params(),
+                    [rule.table, rule.column, rule.rule_code],
+                    default=0,
+                )
+
+                if duplicate_count:
+                    update_clauses = []
+                    update_values = []
+                    updatable_mapping = [
+                        ("rule_params", rule.rule_params),
+                        ("allow_null", int(rule.allow_null)),
+                        ("is_active", int(rule.is_active)),
+                        ("error_code", rule.error_code),
+                        ("comparison_column", rule.comparison_column),
+                    ]
+                    for column_name, value in updatable_mapping:
+                        if column_name in columns:
+                            update_clauses.append(f"{column_name} = ?")
+                            update_values.append(value)
+                    if update_clauses:
+                        cursor.execute(
+                            f"""
+                            UPDATE dbo.temp_validation_config
+                            SET {", ".join(update_clauses)}
+                            WHERE table_name = ? AND column_name = ? AND rule_code = ?
+                            """,
+                            *update_values,
+                            rule.table,
+                            rule.column,
+                            rule.rule_code,
+                        )
+                        conn.commit()
+                    LogsService.log_event(
+                        severity="INFO",
+                        message=f"Validation rule {rule.rule_code} already existed and was updated.",
+                        event_type="validation.rule.updated",
+                        source_module="services.validation_service.add_validation_rule",
+                        validation_context=f"{rule.table}.{rule.column}",
+                        rule_code=rule.rule_code,
+                        table_name=rule.table,
+                        column_name=rule.column,
+                        payload={
+                            "rule_params": rule.rule_params,
+                            "allow_null": rule.allow_null,
+                            "is_active": rule.is_active,
+                            "error_code": rule.error_code,
+                            "comparison_column": rule.comparison_column,
+                        },
+                    )
+                    return True
+
+                insert_columns = []
+                insert_values = []
+
+                mapping = [
+                    ("table_name", rule.table),
+                    ("column_name", rule.column),
+                    ("rule_code", rule.rule_code),
+                    ("rule_params", rule.rule_params),
+                    ("allow_null", int(rule.allow_null)),
+                    ("is_active", int(rule.is_active)),
+                    ("error_code", rule.error_code),
+                    ("comparison_column", rule.comparison_column),
+                ]
+                for column_name, value in mapping:
+                    if column_name in columns:
+                        insert_columns.append(column_name)
+                        insert_values.append(value)
+
+                placeholders = ", ".join("?" for _ in insert_columns)
+                cursor.execute(
+                    f"""
+                    INSERT INTO dbo.temp_validation_config
+                    ({", ".join(insert_columns)})
+                    VALUES ({placeholders})
+                    """,
+                    *insert_values,
                 )
                 conn.commit()
                 LogsService.log_event(
@@ -588,20 +705,32 @@ class ValidationService:
             with db_conn() as conn:
                 cursor = conn.cursor()
                 cursor.execute("TRUNCATE TABLE dbo.temp_validation_config")
+                columns = ValidationService._get_table_columns("temp_validation_config")
                 for _, row in df.iterrows():
                     try:
+                        insert_columns = []
+                        insert_values = []
+                        mapping = [
+                            ("table_name", row["table_name"]),
+                            ("column_name", row["column_name"]),
+                            ("rule_code", row["rule_code"]),
+                            ("rule_params", row.get("rule_params")),
+                            ("allow_null", int(row.get("allow_null", 0))),
+                            ("is_active", 1),
+                            ("error_code", row.get("error_code", "E000")),
+                        ]
+                        for column_name, value in mapping:
+                            if column_name in columns:
+                                insert_columns.append(column_name)
+                                insert_values.append(value)
+                        placeholders = ", ".join("?" for _ in insert_columns)
                         cursor.execute(
-                            """
+                            f"""
                             INSERT INTO dbo.temp_validation_config
-                            (table_name, column_name, rule_code, rule_params, allow_null, is_active, error_code)
-                            VALUES (?, ?, ?, ?, ?, 1, ?)
+                            ({", ".join(insert_columns)})
+                            VALUES ({placeholders})
                             """,
-                            row["table_name"],
-                            row["column_name"],
-                            row["rule_code"],
-                            row.get("rule_params"),
-                            int(row.get("allow_null", 0)),
-                            row.get("error_code", "E000"),
+                            *insert_values,
                         )
                         success += 1
                     except Exception:
@@ -684,29 +813,91 @@ class ValidationService:
         }
 
     @staticmethod
-    def _attempt_json_parse(series: pd.Series) -> float:
+    def _detect_structural_pattern(series: pd.Series, structural_type: str) -> float:
         if series.empty:
             return 0.0
-        total = 0
+        vals = series.dropna().astype(str).str.strip()
+        if vals.empty:
+            return 0.0
+        
         ok = 0
-        for value in series.dropna().astype(str):
-            total += 1
+        for v in vals:
             try:
-                json.loads(value)
-                ok += 1
+                if structural_type == "json":
+                    json.loads(v)
+                    ok += 1
+                elif structural_type == "base64":
+                    if len(v) % 4 == 0 and re.match(r"^[A-Za-z0-9+/]+={0,2}$", v):
+                        base64.b64decode(v, validate=True)
+                        ok += 1
             except Exception:
                 pass
-        return round(ok / max(total, 1), 4)
+        return round(ok / len(vals), 4)
+
+    @staticmethod
+    def _calculate_sample_entropy(series: pd.Series) -> float:
+        import math
+        if series.empty:
+            return 0.0
+        text = "".join(series.dropna().astype(str))
+        if not text:
+            return 0.0
+        counts = {}
+        for char in text:
+            counts[char] = counts.get(char, 0) + 1
+        probs = [c / len(text) for c in counts.values()]
+        return -sum(p * math.log2(p) for p in probs)
+
+    @staticmethod
+    def _get_char_profile(series: pd.Series) -> dict:
+        if series.empty:
+            return {"digit": 0, "alpha": 0, "symbol": 0, "space": 0}
+        text = "".join(series.dropna().astype(str))
+        if not text:
+            return {"digit": 0, "alpha": 0, "symbol": 0, "space": 0}
+        total = len(text)
+        return {
+            "digit": round(sum(c.isdigit() for c in text) / total, 4),
+            "alpha": round(sum(c.isalpha() for c in text) / total, 4),
+            "symbol": round(sum(not c.isalnum() and not c.isspace() for c in text) / total, 4),
+            "space": round(sum(c.isspace() for c in text) / total, 4),
+        }
+
+    @staticmethod
+    def _detect_case_pattern(series: pd.Series) -> str:
+        vals = series.dropna().astype(str).str.strip()
+        if vals.empty:
+            return "mixed"
+        if all(v.isupper() for v in vals if v.isalpha()):
+            return "upper"
+        if all(v.islower() for v in vals if v.isalpha()):
+            return "lower"
+        if all(v.istitle() for v in vals if v.isalpha()):
+            return "title"
+        # Check for camelCase or snake_case
+        if all(re.match(r"^[a-z]+([A-Z][a-z]+)*$", v) for v in vals if v):
+            return "camel"
+        if all(re.match(r"^[a-z]+(_[a-z]+)*$", v) for v in vals if v):
+            return "snake"
+        return "mixed"
 
     @staticmethod
     def _classify_column(data_type: str, null_rate: float, non_null_sample: pd.Series, detectors: dict[str, str]) -> dict:
         values = non_null_sample.dropna().astype(str).str.strip()
         fingerprint = {}
+        
+        # Pattern signals
         for key, pattern in detectors.items():
             try:
                 fingerprint[key] = round(float(values.str.match(pattern, na=False).mean()) if len(values) else 0.0, 4)
             except re.error:
                 fingerprint[key] = 0.0
+        
+        # Statistical signals
+        entropy = ValidationService._calculate_sample_entropy(values)
+        profile = ValidationService._get_char_profile(values)
+        case_pattern = ValidationService._detect_case_pattern(values)
+        
         top_pattern = max(fingerprint, key=fingerprint.get) if fingerprint else None
         top_match_rate = fingerprint.get(top_pattern, 0.0) if top_pattern else 0.0
         unique_ratio = float(values.nunique() / max(len(values), 1))
@@ -718,6 +909,8 @@ class ValidationService:
             category = "free_text"
         elif top_match_rate >= 0.80:
             category = "typed"
+        elif entropy > 4.5 and profile["symbol"] > 0.1:
+            category = "mixed" # likely encrypted or high-entropy tokens
         elif top_match_rate >= 0.40:
             category = "mixed"
         else:
@@ -731,6 +924,9 @@ class ValidationService:
             "unique_ratio": round(unique_ratio, 4),
             "avg_length": round(avg_length, 2),
             "null_rate": round(float(null_rate), 4),
+            "entropy": round(entropy, 2),
+            "char_profile": profile,
+            "case_pattern": case_pattern,
         }
 
     @staticmethod
@@ -841,7 +1037,9 @@ class ValidationService:
         # PASS 3 semantic keyword scan
         for code, meta in ValidationService.RULE_SIGNAL_MAP.items():
             if any(k in col_lower for k in meta["keywords"]):
-                add(code, "", max(meta["base_conf"], 0.78), f"Column name implies {code}.", "semantic")
+                # Boost confidence for keyword matches to ensure survival of quality filter
+                conf = max(meta["base_conf"], 0.85) if any(k == col_lower for k in meta["keywords"]) else max(meta["base_conf"], 0.80)
+                add(code, "", conf, f"Column name implies {code}.", "semantic")
 
         # PASS 4 statistical inference
         num = pd.to_numeric(str_series, errors="coerce").dropna()
@@ -871,35 +1069,46 @@ class ValidationService:
         if non_null_count > 0 and (unique_count / non_null_count) >= 0.98 and any(k in col_lower for k in ["id", "key", "code", "ref", "uuid", "guid"]):
             add("is_unique", "", 0.9, "Near-unique identifier pattern.", "cardinality")
 
-        # PASS 6 pattern matching
+        # PASS 6 pattern matching (Regex + Structural)
         for code, meta in ValidationService.RULE_SIGNAL_MAP.items():
-            if meta.get("detector") is None and code != "is_json":
-                continue
             if non_null_count == 0:
                 continue
-            if code == "is_json":
-                rate = ValidationService._attempt_json_parse(str_series)
-            else:
+            
+            rate = 0.0
+            source = "pattern"
+            
+            if "structural" in meta:
+                rate = ValidationService._detect_structural_pattern(str_series, meta["structural"])
+                source = "structural"
+            elif meta.get("detector"):
                 rate = float(str_series.str.match(meta["detector"], na=False).mean())
-            if rate >= 0.80:
-                conf = min(0.95, 0.70 + (0.20 * rate))
-                add(code, "", conf, f"Pattern matched {rate:.0%} of sampled values.", "pattern")
+            else:
+                continue
+                
+            if rate >= 0.70:
+                conf = min(0.96, meta["base_conf"] + (0.15 * rate))
+                add(code, "", conf, f"{source.capitalize()} matched {rate:.0%} of sampled values.", source)
 
-        # PASS 7 agreement scoring
+        # PASS 7 agreement scoring & statistical boosting
         for code in list(suggestions.keys()):
             rule = ValidationService.RULE_SIGNAL_MAP.get(code, {})
             name_implies = any(k in col_lower for k in rule.get("keywords", []))
-            detector = rule.get("detector")
-            data_confirms = False
-            if detector and non_null_count > 0:
-                data_confirms = float(str_series.str.match(detector, na=False).mean()) >= 0.80
-            elif code in {"min_value", "max_value", "positive_only", "percentage_range", "HasLength"}:
-                data_confirms = True
-            if name_implies and data_confirms:
+            
+            # Boost based on entropy / profile
+            if code == "is_json":
+                if context["entropy"] > 3.5 and context["char_profile"]["symbol"] > 0.15:
+                    suggestions[code]["confidence"] = min(0.99, suggestions[code]["confidence"] + 0.1)
+                    suggestions[code]["rationale"] += " (Consistent with high-symbol entropy profile)"
+            
+            if code == "masked_value":
+                if context["entropy"] > 4.5 and context["unique_ratio"] > 0.9:
+                    suggestions[code]["confidence"] = min(0.98, suggestions[code]["confidence"] + 0.15)
+                    suggestions[code]["rationale"] += " (Matches high-entropy/unique sensitive pattern)"
+
+            # Semantic Agreement
+            if name_implies:
                 suggestions[code]["confidence"] = round(min(0.99, suggestions[code]["confidence"] + 0.05), 2)
                 suggestions[code]["source"] = "agreement"
-            elif name_implies and not data_confirms and detector:
-                suggestions.pop(code, None)
 
         # PASS 8 business injection
         business_by_name = [
@@ -911,19 +1120,49 @@ class ValidationService:
                 params = ValidationService._params_gender_codes(str_series) if code == "gender_code" else ""
                 add(code, params, ValidationService.RULE_SIGNAL_MAP[code]["base_conf"], "Keyword-triggered business/security rule.", "business")
 
-        # sparse/free_text/opaque override path
+        # PASS 9 Cross-Column Heuristics
+        other_columns = [c for c in schema["COLUMN_NAME"].tolist() if c.lower() != col_lower]
+        for other in other_columns:
+            other_lower = other.lower()
+            # Temporal bound detection
+            if ("start" in col_lower and "end" in other_lower) or ("from" in col_lower and "to" in other_lower):
+                if data_type in ValidationService.DATE_TYPES or "date" in col_lower:
+                    add("ColumnComparison", f"operator=>,compare_to={other}", 0.82, f"Detected temporal pair with {other}.", "correlation")
+            # Foreign Key detection
+            if col_lower.endswith("_id") and any(other_lower == col_lower.replace("_id", "") + "_fk" for other in other_columns):
+                 add("foreign_key_check", "", 0.78, f"Implied relationship with {other}.", "correlation")
+
+        # PASS 10 sparse/free_text/opaque override path
         if is_sparse_path:
-            safe_codes = ["HasLength", "no_sql_injection", "no_html_tags", "encoding_check", "trimmed", "no_pii_pattern"]
+            safe_codes = ["HasLength", "no_sql_injection", "no_html_tags", "trimmed", "no_pii_pattern"]
             if null_rate >= 0.9:
                 add("HasLength", f"max={char_max or 4000}", 0.78, "Sparse column safe max length.", "hygiene")
             for code in safe_codes:
                 if code in ValidationService.RULE_SIGNAL_MAP:
                     add(code, "", max(0.7, ValidationService.RULE_SIGNAL_MAP[code]["base_conf"]), "Context-based hygiene fallback.", "hygiene")
 
-        # PASS 9 dedupe + sort
-        results = [v for v in suggestions.values() if v["confidence"] > 0]
+        # PASS 11 dedupe + sort
+        results = [v for v in suggestions.values() if v["confidence"] >= 0.8]
         if warning:
             for item in results:
                 item["rationale"] = f"{warning} {item['rationale']}"
         results.sort(key=lambda r: r["confidence"], reverse=True)
         return results
+
+    @staticmethod
+    def save_schedule(frequency: str, scheduled_time: str, target_tables: list[str]):
+        """Save or update validation schedule."""
+        from services.validation_service import execute_sql
+        tables_str = ",".join(target_tables) if target_tables else None
+        return execute_sql(
+            """
+            IF EXISTS (SELECT 1 FROM dbo.validation_schedules WHERE frequency = ?)
+                UPDATE dbo.validation_schedules 
+                SET scheduled_time = ?, target_tables = ?, is_active = 1 
+                WHERE frequency = ?
+            ELSE
+                INSERT INTO dbo.validation_schedules (frequency, scheduled_time, target_tables, is_active)
+                VALUES (?, ?, ?, 1)
+            """,
+            [frequency, scheduled_time, tables_str, frequency, frequency, scheduled_time, tables_str]
+        )

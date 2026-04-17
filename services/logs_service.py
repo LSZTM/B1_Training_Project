@@ -281,6 +281,7 @@ class LogsService:
                     SELECT
                         CASE WHEN OBJECT_ID('dbo.validation_logs', 'U') IS NULL THEN 0 ELSE 1 END AS logs_ready,
                         CASE WHEN OBJECT_ID('dbo.execute_all_validations_with_logging', 'P') IS NULL THEN 0 ELSE 1 END AS wrapper_ready
+                    OPTION (RECOMPILE)
                     """
                 )
                 row = cursor.fetchone()
@@ -380,7 +381,7 @@ class LogsService:
                 input_summary,
                 output_summary,
                 payload_json
-            FROM dbo.validation_logs
+            FROM dbo.validation_logs WITH (NOLOCK)
             WHERE event_timestamp >= DATEADD(MINUTE, -?, SYSUTCDATETIME())
             """
         ]

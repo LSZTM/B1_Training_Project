@@ -54,79 +54,6 @@ with st.expander("+ Add New Rule", expanded=False):
 
         new_column = st.selectbox("Column", options=columns or [])
 
-        if new_context and new_column:
-            with st.container(border=True):
-                st.markdown("#### Auto-Suggested Rules")
-                suggestions = ValidationService.suggest_rules(new_context, new_column)
-                column_ctx = ValidationService.get_column_context(new_context, new_column)
-
-                category_badge = {
-                    "typed": ("success", "Typed column — high confidence suggestions"),
-                    "sparse": ("warning", f"Sparse column — {int(column_ctx.get('null_rate', 0) * 100)}% NULL"),
-                    "mixed": ("warning", "Mixed content detected"),
-                    "free_text": ("neutral", "Free text column — hygiene rules only"),
-                    "opaque": ("error", "Opaque column — manual review recommended"),
-                }
-                badge_style, badge_label = category_badge.get(
-                    column_ctx.get("category", "opaque"),
-                    ("neutral", "Column profile unavailable"),
-                )
-                st.markdown(
-                    f'<span class="dg-badge {badge_style}">{badge_label}</span>',
-                    unsafe_allow_html=True,
-                )
-
-                if column_ctx.get("warning"):
-                    st.warning(column_ctx["warning"])
-
-                if column_ctx.get("category") in {"mixed", "opaque"}:
-                    with st.expander("Data fingerprint", expanded=False):
-                        for pattern, rate in sorted(
-                            column_ctx.get("fingerprint", {}).items(),
-                            key=lambda item: item[1],
-                            reverse=True,
-                        ):
-                            if rate > 0.05:
-                                st.progress(rate, text=f"{pattern}: {rate:.0%}")
-
-                if suggestions:
-                    for idx, suggestion in enumerate(suggestions):
-                        row_c1, row_c2 = st.columns([5, 2])
-                        with row_c1:
-                            st.markdown(
-                                f"**{suggestion['rule_code']}** · "
-                                f"Confidence `{suggestion['confidence']:.2f}` · "
-                                f"[{suggestion.get('category', 'general')}/{suggestion.get('source', 'data')}]  \n"
-                                f"`{suggestion['rule_params'] or '(no params)'}`  \n"
-                                f"{suggestion['rationale']}"
-                            )
-                        with row_c2:
-                            if st.button("Add Suggestion", key=f"add_suggest_{idx}", use_container_width=True):
-                                if not implementation_map.get(suggestion["rule_code"], True):
-                                    st.warning(f"{suggestion['rule_code']} is not yet implemented and cannot be added.")
-                                    st.stop()
-                                auto_error_code = f"AUTO_{suggestion['rule_code'].upper()[:20]}"
-                                suggested_rule = Rule.from_signal_map(
-                                    table=new_context,
-                                    column=new_column,
-                                    rule_code=suggestion["rule_code"],
-                                    rule_signal_map=ValidationService.RULE_SIGNAL_MAP,
-                                    implementation_map=implementation_map,
-                                    rule_params=suggestion["rule_params"],
-                                    allow_null=suggestion["rule_code"] != "NOT_NULL",
-                                    is_active=True,
-                                    error_code=auto_error_code,
-                                    comparison_column=None,
-                                )
-                                added = ValidationService.add_validation_rule(
-                                    suggested_rule
-                                )
-                                if added:
-                                    st.success(f"Added suggested rule: {suggestion['rule_code']}")
-                                    st.rerun()
-                                st.error("Failed to add suggested rule.")
-                else:
-                    st.caption("No high-confidence suggestions found for this column.")
 
     with c2:
         rule_types = sorted(ValidationService.RULE_SIGNAL_MAP.keys())
@@ -140,6 +67,91 @@ with st.expander("+ Add New Rule", expanded=False):
             st.warning(
                 "This rule is currently marked NOT_IMPLEMENTED in the database and cannot be saved."
             )
+
+    # ── Full-Width Suggestions ────────────────────────────────────────────────
+    if new_context and new_column:
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("#### Auto-Suggested Rules")
+            suggestions = ValidationService.suggest_rules(new_context, new_column)
+            column_ctx = ValidationService.get_column_context(new_context, new_column)
+
+            category_badge = {
+                "typed": ("success", "Typed column — high confidence suggestions"),
+                "sparse": ("warning", f"Sparse column — {int(column_ctx.get('null_rate', 0) * 100)}% NULL"),
+                "mixed": ("warning", "Mixed content detected"),
+                "free_text": ("neutral", "Free text column — hygiene rules only"),
+                "opaque": ("error", "Opaque column — manual review recommended"),
+            }
+            badge_style, badge_label = category_badge.get(
+                column_ctx.get("category", "opaque"),
+                ("neutral", "Column profile unavailable"),
+            )
+            
+            b_col1, b_col2 = st.columns([1, 3])
+            with b_col1:
+                st.markdown(f'<span class="dg-badge {badge_style}">{badge_label}</span>', unsafe_allow_html=True)
+            with b_col2:
+                if column_ctx.get("warning"):
+                    st.caption(f"⚠️ {column_ctx['warning']}")
+
+            if column_ctx.get("category") in {"mixed", "opaque"}:
+                with st.expander("Data fingerprint", expanded=False):
+                    for pattern, rate in sorted(
+                        column_ctx.get("fingerprint", {}).items(),
+                        key=lambda item: item[1],
+                        reverse=True,
+                    ):
+                        if rate > 0.05:
+                            st.progress(rate, text=f"{pattern}: {rate:.0%}")
+
+            if suggestions:
+                st.markdown('<div class="dg-section-label">Smart Suggestions</div>', unsafe_allow_html=True)
+                
+                # Process suggestions in triplets for full-width grid
+                for i in range(0, len(suggestions), 3):
+                    cols = st.columns(3)
+                    for j in range(3):
+                        if i + j < len(suggestions):
+                            with cols[j]:
+                                suggestion = suggestions[i + j]
+                                with st.container(border=True):
+                                    st.markdown(
+                                        f"<div style='font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;'>{suggestion['rule_code']}</div>"
+                                        f"<div style='font-size: 0.75rem; color: var(--accent); margin-bottom: 8px;'>Confidence {suggestion['confidence']:.2f} · {suggestion.get('category', 'general')}</div>"
+                                        f"<div style='font-size: 0.75rem; color: var(--text-muted); line-height: 1.3; height: 3.2em; overflow: hidden; margin-bottom: 12px;'>{suggestion['rationale']}</div>",
+                                        unsafe_allow_html=True
+                                    )
+                                    
+                                    sub_c1, sub_c2 = st.columns([1, 1])
+                                    with sub_c1:
+                                        st.caption(f"`{suggestion['rule_params'] or 'no params'}`")
+                                    with sub_c2:
+                                        if st.button("Add", key=f"add_suggest_{i+j}", use_container_width=True, type="primary"):
+                                            if not implementation_map.get(suggestion["rule_code"], True):
+                                                st.warning(f"Not implemented")
+                                                st.stop()
+                                            
+                                            auto_error_code = f"A_{suggestion['rule_code'].upper()[:45]}"
+                                            suggested_rule = Rule.from_signal_map(
+                                                table=new_context,
+                                                column=new_column,
+                                                rule_code=suggestion["rule_code"],
+                                                rule_signal_map=ValidationService.RULE_SIGNAL_MAP,
+                                                implementation_map=implementation_map,
+                                                rule_params=suggestion["rule_params"],
+                                                allow_null=suggestion["rule_code"] != "NOT_NULL",
+                                                is_active=True,
+                                                error_code=auto_error_code,
+                                                comparison_column=None,
+                                            )
+                                            if ValidationService.add_validation_rule(suggested_rule):
+                                                st.success("Added")
+                                                st.rerun()
+                                            else:
+                                                st.error("Failed")
+            else:
+                st.caption("No high-confidence suggestions found for this column.")
 
     # ---------------------------------------------------
     #  Dynamic parameter inputs
@@ -244,8 +256,13 @@ with st.expander("+ Add New Rule", expanded=False):
         allow_null = st.checkbox("Allow NULL values", value=False, 
                                  help="If checked, NULL values will pass validation")
     with col2:
-        error_code = st.text_input("Error Code", value="E000", 
-                                   help="Error code to use when rule fails")
+        # Automatically generate error code based on rule and column
+        generated_prefix = "M" 
+        clean_rule = new_rule.upper().replace("_", "")[:15]
+        clean_col = new_column.upper().replace("_", "")[:15]
+        error_code = f"{generated_prefix}_{clean_rule}_{clean_col}"
+        
+        st.info(f"Generated Error Code: `{error_code}`")
 
     # ---------------------------------------------------
     # Preview
