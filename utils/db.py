@@ -18,7 +18,6 @@ LEGACY_CONNECTION_STRINGS = [
 SESSION_CONN_STR_KEY = "db_connection_string"
 SESSION_DB_NAME_KEY = "db_selected_database"
 SESSION_SERVER_KEY = "db_selected_server"
-MODULE_CONN_STR_CACHE = None
 
 # ── Available ODBC drivers ────────────────────────────────────────────────────
 def get_available_drivers():
@@ -44,19 +43,16 @@ def build_connection_string(server, database, driver=None, username=None, passwo
 
 # ── Cache helpers ─────────────────────────────────────────────────────────────
 def _get_cached_connection_string():
-    global MODULE_CONN_STR_CACHE
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+    if not get_script_run_ctx():
+        return None
+        
     try:
-        if SESSION_CONN_STR_KEY in st.session_state:
-            MODULE_CONN_STR_CACHE = st.session_state[SESSION_CONN_STR_KEY]
-            return MODULE_CONN_STR_CACHE
+        return st.session_state.get(SESSION_CONN_STR_KEY, None)
     except Exception:
-        pass
-    return MODULE_CONN_STR_CACHE
-
+        return None
 
 def _set_cached_connection_string(conn_str):
-    global MODULE_CONN_STR_CACHE
-    MODULE_CONN_STR_CACHE = conn_str
     try:
         st.session_state[SESSION_CONN_STR_KEY] = conn_str
     except Exception:
