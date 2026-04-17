@@ -733,6 +733,259 @@ def load_css():
         ::-webkit-scrollbar-track { background: var(--bg-base); }
         ::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 99px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--border-accent); }
+
+        /* ─────────────────────────────────────────────────────────────
+           DARK THEME — CHARTS & PLOTS
+        ───────────────────────────────────────────────────────────── */
+        /* Plotly charts */
+        .js-plotly-plot .plotly,
+        .js-plotly-plot .plotly .main-svg,
+        .js-plotly-plot .plotly .bg {
+            background-color: var(--bg-raised) !important;
+            fill: var(--bg-raised) !important;
+        }
+
+        .js-plotly-plot .plotly .gridlayer line,
+        .js-plotly-plot .plotly .zerolinelayer line {
+            stroke: var(--border-subtle) !important;
+        }
+
+        .js-plotly-plot .plotly .xtick text,
+        .js-plotly-plot .plotly .ytick text,
+        .js-plotly-plot .plotly .g-xtitle text,
+        .js-plotly-plot .plotly .g-ytitle text {
+            fill: var(--text-muted) !important;
+        }
+
+        /* Vega / Altair / st.bar_chart / st.line_chart */
+        .vega-embed,
+        .vega-embed .chart-wrapper {
+            background-color: var(--bg-raised) !important;
+        }
+
+        .vega-embed canvas {
+            border-radius: var(--radius-md);
+        }
+
+        .vega-embed summary {
+            display: none !important;
+        }
+
+        /* Generic Streamlit chart wrapper */
+        [data-testid="stArrowVegaLiteChart"],
+        [data-testid="stVegaLiteChart"] {
+            background-color: var(--bg-raised) !important;
+            border: 1px solid var(--border-subtle) !important;
+            border-radius: var(--radius-lg) !important;
+            padding: 12px !important;
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           DARK THEME — DATAFRAMES & TABLES
+        ───────────────────────────────────────────────────────────── */
+        /* Glide Data Grid (st.dataframe / st.data_editor) */
+        [data-testid="stDataFrame"] > div {
+            background-color: var(--bg-raised) !important;
+        }
+
+        [data-testid="stDataFrame"] canvas {
+            border-radius: var(--radius-md);
+        }
+
+        /* Markdown tables */
+        .stMarkdown table,
+        .element-container table {
+            background-color: var(--bg-raised) !important;
+            border-collapse: collapse !important;
+            width: 100% !important;
+            border-radius: var(--radius-md) !important;
+            overflow: hidden !important;
+        }
+
+        .stMarkdown table th,
+        .element-container table th {
+            background-color: var(--bg-overlay) !important;
+            color: var(--text-secondary) !important;
+            font-family: var(--font-mono) !important;
+            font-size: 0.72rem !important;
+            font-weight: 500 !important;
+            letter-spacing: 0.08em !important;
+            text-transform: uppercase !important;
+            padding: 10px 14px !important;
+            border-bottom: 1px solid var(--border-default) !important;
+        }
+
+        .stMarkdown table td,
+        .element-container table td {
+            background-color: var(--bg-raised) !important;
+            color: var(--text-secondary) !important;
+            font-size: 0.82rem !important;
+            padding: 8px 14px !important;
+            border-bottom: 1px solid var(--border-subtle) !important;
+        }
+
+        .stMarkdown table tr:hover td,
+        .element-container table tr:hover td {
+            background-color: var(--bg-elevated) !important;
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           DARK THEME — SELECTBOX / DROPDOWN POPOVER
+        ───────────────────────────────────────────────────────────── */
+        /* Dropdown popover / listbox container */
+        div[data-baseweb="popover"] {
+            background-color: var(--bg-elevated) !important;
+            border: 1px solid var(--border-default) !important;
+            border-radius: var(--radius-md) !important;
+            box-shadow: var(--shadow-lg) !important;
+        }
+
+        div[data-baseweb="popover"] > div {
+            background-color: var(--bg-elevated) !important;
+        }
+
+        /* Listbox inside the popover */
+        ul[role="listbox"] {
+            background-color: var(--bg-elevated) !important;
+            border: none !important;
+        }
+
+        ul[role="listbox"] li {
+            background-color: var(--bg-elevated) !important;
+            color: var(--text-secondary) !important;
+            font-size: 0.85rem !important;
+        }
+
+        ul[role="listbox"] li:hover {
+            background-color: var(--accent-dim) !important;
+            color: var(--text-primary) !important;
+        }
+
+        ul[role="listbox"] li[aria-selected="true"] {
+            background-color: var(--accent-dim) !important;
+            color: var(--accent) !important;
+            font-weight: 500 !important;
+        }
+
+        /* The select input control itself */
+        div[data-baseweb="select"] > div {
+            background-color: var(--bg-base) !important;
+            border-color: var(--border-default) !important;
+        }
+
+        div[data-baseweb="select"] > div:hover {
+            border-color: var(--border-accent) !important;
+        }
+
+        /* Search input inside select */
+        div[data-baseweb="select"] input {
+            color: var(--text-primary) !important;
+            background-color: transparent !important;
+        }
+
+        /* Tags inside multiselect */
+        span[data-baseweb="tag"] {
+            background-color: var(--accent-dim) !important;
+            color: var(--accent) !important;
+            border: 1px solid rgba(99, 102, 241, 0.3) !important;
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           DARK THEME — RADIO BUTTONS & CHECKBOXES
+        ───────────────────────────────────────────────────────────── */
+        .stRadio label,
+        .stMultiSelect label {
+            font-family: var(--font-mono) !important;
+            font-size: 0.65rem !important;
+            font-weight: 500 !important;
+            letter-spacing: 0.14em !important;
+            text-transform: uppercase !important;
+            color: var(--text-muted) !important;
+        }
+
+        .stRadio [role="radiogroup"] {
+            gap: 4px !important;
+        }
+
+        .stRadio [role="radiogroup"] label {
+            font-family: var(--font-body) !important;
+            font-size: 0.82rem !important;
+            text-transform: none !important;
+            letter-spacing: normal !important;
+            color: var(--text-secondary) !important;
+            background-color: var(--bg-base) !important;
+            border: 1px solid var(--border-default) !important;
+            border-radius: var(--radius-md) !important;
+            padding: 8px 14px !important;
+            transition: all 0.15s ease !important;
+        }
+
+        .stRadio [role="radiogroup"] label:hover {
+            border-color: var(--border-accent) !important;
+            background-color: var(--bg-elevated) !important;
+        }
+
+        .stRadio [role="radiogroup"] label[data-checked="true"],
+        .stRadio [role="radiogroup"] label:has(input:checked) {
+            border-color: var(--accent) !important;
+            background-color: var(--accent-dim) !important;
+            color: var(--text-primary) !important;
+        }
+
+        /* Checkbox styling */
+        .stCheckbox [data-testid="stCheckbox"] label span {
+            color: var(--text-secondary) !important;
+            font-size: 0.82rem !important;
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           DARK THEME — TOOLTIPS, TOASTS, CONTAINERS
+        ───────────────────────────────────────────────────────────── */
+        /* Streamlit tooltips */
+        [data-testid="stTooltipContent"] {
+            background-color: var(--bg-overlay) !important;
+            color: var(--text-secondary) !important;
+            border: 1px solid var(--border-default) !important;
+            border-radius: var(--radius-md) !important;
+        }
+
+        /* Container borders */
+        [data-testid="stVerticalBlock"] > div[data-testid="element-container"] > div > div[style*="border"] {
+            border-color: var(--border-subtle) !important;
+        }
+
+        /* st.container(border=True) */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            background-color: var(--bg-raised) !important;
+            border: 1px solid var(--border-subtle) !important;
+            border-radius: var(--radius-lg) !important;
+        }
+
+        /* st.info / st.success / st.warning / st.error boxes */
+        [data-testid="stNotification"] {
+            background-color: var(--bg-elevated) !important;
+            border-radius: var(--radius-md) !important;
+        }
+
+        /* st.caption */
+        .stCaption, [data-testid="stCaptionContainer"] {
+            color: var(--text-muted) !important;
+        }
+
+        /* st.code */
+        .stCodeBlock, code {
+            background-color: var(--bg-overlay) !important;
+            color: var(--text-secondary) !important;
+            border-radius: var(--radius-sm) !important;
+        }
+
+        /* JSON viewer */
+        [data-testid="stJson"] {
+            background-color: var(--bg-raised) !important;
+            border: 1px solid var(--border-subtle) !important;
+            border-radius: var(--radius-md) !important;
+        }
+
         </style>
         """,
         unsafe_allow_html=True,
