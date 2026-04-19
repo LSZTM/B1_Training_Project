@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import re
+import time
 import uuid
 from contextlib import contextmanager
 
@@ -200,88 +201,139 @@ class ValidationService:
             current["rationale"] = f"{current['rationale']} | {rationale}"
 
     @staticmethod
-    def run_all_validations():
+    def run_all_validations(table_names=None):
         correlation_id = str(uuid.uuid4())
         validation_id = str(uuid.uuid4())
+        
+        target_scope = "all-validations" if not table_names else f"selective:{','.join(table_names)}"
+        
         LogsService.log_event(
             severity="INFO",
-            message="Validation batch started.",
+            message=f"Validation batch started ({target_scope}).",
             event_type="validation.started",
             source_module="services.validation_service.run_all_validations",
             validation_id=validation_id,
             correlation_id=correlation_id,
             validation_status="STARTED",
-            payload={"procedure": "dbo.execute_all_validations_with_logging"},
+            payload={"procedure": "dbo.execute_all_validations_with_logging", "table_names": table_names},
         )
+        
         try:
             with db_conn() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM validation_rules WHERE is_active=1")
-                active_rules_count = cursor.fetchone()[0]
-                if active_rules_count == 0:
+                
+                # Check for active rules
+                query = "SELECT id, table_name, column_name, rule_code, rule_params FROM temp_validation_config WHERE is_active = 1"
+                if table_names:
+                    placeholders = ', '.join(['?'] * len(table_names))
+                    query += f" AND table_name IN ({placeholders})"
+                    cursor.execute(query, table_names)
+                else:
+                    cursor.execute(query)
+                
+                active_rules = cursor.fetchall()
+                
+                if not active_rules and not table_names:
                     ValidationService.auto_apply_safe_rules()
+                    cursor.execute(query)
+                    active_rules = cursor.fetchall()
 
-                used_wrapper = False
+                if not active_rules:
+                    return {"success": True, "message": "No active rules found for the selected scope.", "run_count": 0}
 
-                try:
-                    cursor.execute("EXEC dbo.execute_all_validations_with_logging")
-                    row = cursor.fetchone()
+                # If we have specific tables, we call vp_validate_column for each rule
+                if table_names:
+                    scanned_total = 0
+                    errors_total = 0
+                    duration_total = 0
+                    for rule_id, t_name, c_name, r_code, r_params in active_rules:
+                        try:
+                            start_time = time.time()
+                            cursor.execute("EXEC dbo.vp_validate_column ?, ?, ?, ?", (t_name, c_name, r_code, r_params))
+                            row = cursor.fetchone()
+                            if row:
+                                scanned_total += row[3] # rows_scanned
+                                errors_total += row[5] # fail_count
+                            duration_total += int((time.time() - start_time) * 1000)
+                        except Exception as rule_err:
+                            logger.error(f"Rule execution failed: {t_name}.{c_name} - {r_code}: {rule_err}")
+                    
                     conn.commit()
-                    used_wrapper = True
-                except Exception as wrapper_error:
-                    if "execute_all_validations_with_logging" not in str(wrapper_error):
-                        raise
+                    
+                    result = {
+                        "success": True,
+                        "validation_id": validation_id,
+                        "correlation_id": correlation_id,
+                        "run_id": None, # individual runs have their own run_ids
+                        "run_count": len(active_rules),
+                        "failed_runs": 1 if errors_total > 0 else 0,
+                        "records_scanned": scanned_total,
+                        "total_errors": errors_total,
+                        "duration_ms": duration_total,
+                        "status": "COMPLETED",
+                    }
+                else:
+                    # Run the full batch procedure
+                    used_wrapper = False
+                    try:
+                        cursor.execute("EXEC dbo.execute_all_validations_with_logging")
+                        row = cursor.fetchone()
+                        conn.commit()
+                        used_wrapper = True
+                    except Exception as wrapper_error:
+                        if "execute_all_validations_with_logging" not in str(wrapper_error):
+                            raise
 
-                    cursor.execute("EXEC dbo.execute_all_validations")
-                    conn.commit()
-                    cursor.execute(
-                        """
-                        SELECT TOP 1 run_id, total_records_scanned, total_errors, duration_ms, status
-                        FROM validation_run_history
-                        ORDER BY run_id DESC
-                        """
-                    )
-                    fallback = cursor.fetchone()
-                    if not fallback:
-                        row = None
-                    else:
-                        row = (
-                            validation_id,
-                            correlation_id,
-                            fallback[0],
-                            1,
-                            1 if (fallback[2] or 0) > 0 else 0,
-                            fallback[1],
-                            fallback[2],
-                            fallback[3],
-                            fallback[4],
+                        cursor.execute("EXEC dbo.execute_all_validations")
+                        conn.commit()
+                        cursor.execute(
+                            """
+                            SELECT TOP 1 run_id, total_records_scanned, total_errors, duration_ms, status
+                            FROM validation_run_history
+                            ORDER BY run_id DESC
+                            """
                         )
+                        fallback = cursor.fetchone()
+                        if not fallback:
+                            row = None
+                        else:
+                            row = (
+                                validation_id,
+                                correlation_id,
+                                fallback[0],
+                                1,
+                                1 if (fallback[2] or 0) > 0 else 0,
+                                fallback[1],
+                                fallback[2],
+                                fallback[3],
+                                fallback[4],
+                            )
 
-                if not row:
-                    LogsService.log_event(
-                        severity="WARNING",
-                        message="Validation batch completed without any run history rows.",
-                        event_type="validation.completed",
-                        source_module="services.validation_service.run_all_validations",
-                        validation_id=validation_id,
-                        correlation_id=correlation_id,
-                        validation_status="COMPLETED",
-                        payload={"used_wrapper": used_wrapper, "run_rows": 0},
-                    )
-                    return {"success": True, "validation_id": validation_id, "correlation_id": correlation_id}
+                    if not row:
+                        LogsService.log_event(
+                            severity="WARNING",
+                            message="Validation batch completed without any run history rows.",
+                            event_type="validation.completed",
+                            source_module="services.validation_service.run_all_validations",
+                            validation_id=validation_id,
+                            correlation_id=correlation_id,
+                            validation_status="COMPLETED",
+                            payload={"used_wrapper": used_wrapper, "run_rows": 0},
+                        )
+                        return {"success": True, "validation_id": validation_id, "correlation_id": correlation_id}
 
-                result = {
-                    "success": True,
-                    "validation_id": str(row[0] or validation_id),
-                    "correlation_id": str(row[1] or correlation_id),
-                    "run_id": row[2],
-                    "run_count": row[3],
-                    "failed_runs": row[4],
-                    "records_scanned": row[5],
-                    "total_errors": row[6],
-                    "duration_ms": row[7],
-                    "status": row[8],
-                }
+                    result = {
+                        "success": True,
+                        "validation_id": str(row[0] or validation_id),
+                        "correlation_id": str(row[1] or correlation_id),
+                        "run_id": row[2],
+                        "run_count": row[3],
+                        "failed_runs": row[4],
+                        "records_scanned": row[5],
+                        "total_errors": row[6],
+                        "duration_ms": row[7],
+                        "status": row[8],
+                    }
 
             LogsService.log_event(
                 severity="INFO",

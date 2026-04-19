@@ -169,7 +169,7 @@ elif st.session_state.execute_step == 3:
             with st.spinner("Initializing engine and executing rules..."):
                 # Simulation of per-table run if needed, but for now we follow existing service
                 # In a real fix, we'd pass selected_tables to run_all_validations
-                result = ValidationService.run_all_validations()
+                result = ValidationService.run_all_validations(table_names=st.session_state.selected_tables)
                 
             if result.get("success"):
                 st.success(f"Execution Complete! {result.get('total_errors', 0):,} errors found.")
