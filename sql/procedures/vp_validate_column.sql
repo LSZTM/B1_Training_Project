@@ -1,3 +1,6 @@
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
 CREATE OR ALTER PROCEDURE dbo.vp_validate_column
     @table_name NVARCHAR(128),
     @column_name NVARCHAR(128),
@@ -7,6 +10,9 @@ CREATE OR ALTER PROCEDURE dbo.vp_validate_column
 AS
 BEGIN
     SET NOCOUNT ON;
+
+    -- Normalize empty-string params to NULL so single-arg functions are called correctly
+    IF @param = '' SET @param = NULL;
 
     DECLARE @pass_count INT = 0, @fail_count INT = 0, @scanned INT = 0;
     DECLARE @fn SYSNAME = N'dbo.vf_' + @rule_code;
@@ -20,8 +26,7 @@ BEGIN
         WHERE table_name = @table_name
           AND column_name = @column_name
           AND rule_code = @rule_code
-          AND is_active = 1
-        ORDER BY id DESC;
+          AND is_active = 1;
 
         IF @comparison_column IS NULL
             THROW 50002, 'ColumnComparison rule requires comparison_column.', 1;

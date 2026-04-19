@@ -4,6 +4,9 @@ Priority 5 migration
 - Normalizes severity with indexed severity ranks.
 - Wraps the existing batch validation procedure with lifecycle logging.
 */
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
 
 IF OBJECT_ID('dbo.validation_logs', 'U') IS NULL
 BEGIN
@@ -90,6 +93,7 @@ END;
 GO
 
 CREATE OR ALTER PROCEDURE dbo.execute_all_validations_with_logging
+    @table_names_csv NVARCHAR(MAX) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -129,7 +133,7 @@ BEGIN
             )
         );
 
-        EXEC dbo.execute_all_validations;
+        EXEC dbo.execute_all_validations @table_names_csv;
 
         DECLARE @new_runs TABLE
         (

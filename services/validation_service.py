@@ -202,138 +202,85 @@ class ValidationService:
 
     @staticmethod
     def run_all_validations(table_names=None):
+        """Execute validations via the SQL stored procedure pipeline.
+
+        Calls dbo.execute_all_validations_with_logging which internally
+        iterates over temp_validation_config and calls vp_validate_column
+        for each active rule.  An optional *table_names* list filters the
+        scope to only those tables.
+
+        The procedure returns a single summary row:
+          validation_id, correlation_id, run_id, run_count, failed_runs,
+          records_scanned, total_errors, duration_ms, status
+        """
         correlation_id = str(uuid.uuid4())
         validation_id = str(uuid.uuid4())
-        
-        target_scope = "all-validations" if not table_names else f"selective:{','.join(table_names)}"
-        
+
         LogsService.log_event(
             severity="INFO",
-            message=f"Validation batch started ({target_scope}).",
+            message="Validation batch started.",
             event_type="validation.started",
             source_module="services.validation_service.run_all_validations",
             validation_id=validation_id,
             correlation_id=correlation_id,
             validation_status="STARTED",
-            payload={"procedure": "dbo.execute_all_validations_with_logging", "table_names": table_names},
+            payload={"table_names": table_names},
         )
-        
+
         try:
             with db_conn() as conn:
                 cursor = conn.cursor()
-                
-                # Check for active rules
-                query = "SELECT id, table_name, column_name, rule_code, rule_params FROM temp_validation_config WHERE is_active = 1"
-                if table_names:
-                    placeholders = ', '.join(['?'] * len(table_names))
-                    query += f" AND table_name IN ({placeholders})"
-                    cursor.execute(query, table_names)
-                else:
-                    cursor.execute(query)
-                
-                active_rules = cursor.fetchall()
-                
-                if not active_rules and not table_names:
-                    ValidationService.auto_apply_safe_rules()
-                    cursor.execute(query)
-                    active_rules = cursor.fetchall()
 
-                if not active_rules:
-                    return {"success": True, "message": "No active rules found for the selected scope.", "run_count": 0}
+                # Required for INSERT into validation_logs (indexed computed column severity_rank)
+                cursor.execute("SET QUOTED_IDENTIFIER ON")
 
-                # If we have specific tables, we call vp_validate_column for each rule
-                if table_names:
-                    scanned_total = 0
-                    errors_total = 0
-                    duration_total = 0
-                    for rule_id, t_name, c_name, r_code, r_params in active_rules:
-                        try:
-                            start_time = time.time()
-                            cursor.execute("EXEC dbo.vp_validate_column ?, ?, ?, ?", (t_name, c_name, r_code, r_params))
-                            row = cursor.fetchone()
-                            if row:
-                                scanned_total += row[3] # rows_scanned
-                                errors_total += row[5] # fail_count
-                            duration_total += int((time.time() - start_time) * 1000)
-                        except Exception as rule_err:
-                            logger.error(f"Rule execution failed: {t_name}.{c_name} - {r_code}: {rule_err}")
-                    
-                    conn.commit()
-                    
-                    result = {
+                # Build the table filter CSV (NULL = run all)
+                table_csv = ",".join(table_names) if table_names else None
+
+                # The SP handles everything: cursor loop, per-rule execution, logging, summary
+                cursor.execute(
+                    "EXEC dbo.execute_all_validations_with_logging @table_names_csv = ?",
+                    (table_csv,),
+                )
+
+                # The SP may return per-rule result sets before the final summary.
+                # We need to advance past them to reach the summary row.
+                row = cursor.fetchone()
+                while row and len(row) < 9:
+                    # Skip per-rule result rows (7 columns) to reach summary (9 columns)
+                    try:
+                        if not cursor.nextset():
+                            row = None
+                            break
+                        row = cursor.fetchone()
+                    except Exception:
+                        row = None
+                        break
+
+                conn.commit()
+
+                if not row or len(row) < 9:
+                    # Procedure ran but returned no summary — still a success, just no data
+                    return {
                         "success": True,
                         "validation_id": validation_id,
                         "correlation_id": correlation_id,
-                        "run_id": None, # individual runs have their own run_ids
-                        "run_count": len(active_rules),
-                        "failed_runs": 1 if errors_total > 0 else 0,
-                        "records_scanned": scanned_total,
-                        "total_errors": errors_total,
-                        "duration_ms": duration_total,
+                        "run_count": 0,
                         "status": "COMPLETED",
                     }
-                else:
-                    # Run the full batch procedure
-                    used_wrapper = False
-                    try:
-                        cursor.execute("EXEC dbo.execute_all_validations_with_logging")
-                        row = cursor.fetchone()
-                        conn.commit()
-                        used_wrapper = True
-                    except Exception as wrapper_error:
-                        if "execute_all_validations_with_logging" not in str(wrapper_error):
-                            raise
 
-                        cursor.execute("EXEC dbo.execute_all_validations")
-                        conn.commit()
-                        cursor.execute(
-                            """
-                            SELECT TOP 1 run_id, total_records_scanned, total_errors, duration_ms, status
-                            FROM validation_run_history
-                            ORDER BY run_id DESC
-                            """
-                        )
-                        fallback = cursor.fetchone()
-                        if not fallback:
-                            row = None
-                        else:
-                            row = (
-                                validation_id,
-                                correlation_id,
-                                fallback[0],
-                                1,
-                                1 if (fallback[2] or 0) > 0 else 0,
-                                fallback[1],
-                                fallback[2],
-                                fallback[3],
-                                fallback[4],
-                            )
-
-                    if not row:
-                        LogsService.log_event(
-                            severity="WARNING",
-                            message="Validation batch completed without any run history rows.",
-                            event_type="validation.completed",
-                            source_module="services.validation_service.run_all_validations",
-                            validation_id=validation_id,
-                            correlation_id=correlation_id,
-                            validation_status="COMPLETED",
-                            payload={"used_wrapper": used_wrapper, "run_rows": 0},
-                        )
-                        return {"success": True, "validation_id": validation_id, "correlation_id": correlation_id}
-
-                    result = {
-                        "success": True,
-                        "validation_id": str(row[0] or validation_id),
-                        "correlation_id": str(row[1] or correlation_id),
-                        "run_id": row[2],
-                        "run_count": row[3],
-                        "failed_runs": row[4],
-                        "records_scanned": row[5],
-                        "total_errors": row[6],
-                        "duration_ms": row[7],
-                        "status": row[8],
-                    }
+                result = {
+                    "success": True,
+                    "validation_id": str(row[0] or validation_id),
+                    "correlation_id": str(row[1] or correlation_id),
+                    "run_id": row[2],
+                    "run_count": row[3],
+                    "failed_runs": row[4],
+                    "records_scanned": row[5],
+                    "total_errors": row[6],
+                    "duration_ms": row[7],
+                    "status": row[8],
+                }
 
             LogsService.log_event(
                 severity="INFO",
@@ -348,6 +295,7 @@ class ValidationService:
                 payload={"failed_runs": result.get("failed_runs", 0), "run_count": result.get("run_count", 0)},
             )
             return result
+
         except Exception as e:
             logger.error("run_all_validations failed: %s", e)
             LogsService.capture_exception(
@@ -357,7 +305,6 @@ class ValidationService:
                 event_type="validation.failed",
                 validation_id=validation_id,
                 correlation_id=correlation_id,
-                payload={"procedure": "dbo.execute_all_validations_with_logging"},
             )
             return {"success": False, "error": str(e)}
 
@@ -572,19 +519,27 @@ class ValidationService:
 
     @staticmethod
     def get_active_rules():
-        return fetch_df("""SELECT id, table_name, column_name, rule_code, rule_params, allow_null, is_active, error_code, comparison_column FROM temp_validation_config ORDER BY table_name, column_name""")
+        return fetch_df("""SELECT table_name, column_name, rule_code, rule_params, allow_null, is_active, error_code, comparison_column FROM temp_validation_config ORDER BY table_name, column_name""")
 
     @staticmethod
     def get_validation_rules():
         return ValidationService.get_active_rules()
 
     @staticmethod
-    def toggle_rule(rule_id, is_active):
-        return execute_sql("UPDATE temp_validation_config SET is_active = ? WHERE id = ?", [int(bool(is_active)), rule_id])
+    def toggle_rule(table_name, column_name, rule_code, is_active):
+        """Toggle a rule's active status using the composite primary key."""
+        return execute_sql(
+            "UPDATE temp_validation_config SET is_active = ? WHERE table_name = ? AND column_name = ? AND rule_code = ?",
+            [int(bool(is_active)), table_name, column_name, rule_code],
+        )
 
     @staticmethod
-    def delete_rule(rule_id):
-        return execute_sql("DELETE FROM temp_validation_config WHERE id = ?", [rule_id])
+    def delete_rule(table_name, column_name, rule_code):
+        """Delete a rule using the composite primary key."""
+        return execute_sql(
+            "DELETE FROM temp_validation_config WHERE table_name = ? AND column_name = ? AND rule_code = ?",
+            [table_name, column_name, rule_code],
+        )
 
     @staticmethod
     def add_validation_rule(rule_or_table, column=None, rule_code=None, rule_params="", allow_null=False, is_active=True, error_code="E000", comparison_column=None):

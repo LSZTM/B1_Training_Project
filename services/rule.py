@@ -69,7 +69,7 @@ class Rule:
             self.table,
             self.column,
             self.rule_code,
-            self.rule_params,
+            self.rule_params or None,  # Store NULL instead of empty string
             int(self.allow_null),
             int(self.is_active),
             self.error_code,
