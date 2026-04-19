@@ -42,11 +42,12 @@ def render_sidebar():
         st.markdown('<div class="dg-nav-label">Navigation</div>', unsafe_allow_html=True)
 
         pages = [
-            ("Overview", "pages/1_Overview.py"),
-            ("Run Validation", "pages/2_Runs.py"),
-            ("Error Explorer", "pages/3_Errors.py"),
-            ("Validation Rules", "pages/4_Rules.py"),
-            ("Validation Logs", "pages/5_Logs.py"),
+            ("Quick Start", "pages/1_Welcome.py"),
+            ("Health Dashboard", "pages/2_Dashboard.py"),
+            ("Run Validations", "pages/3_Execute.py"),
+            ("Results & History", "pages/4_History.py"),
+            ("Rule Manager", "pages/5_Rules.py"),
+            ("Operational Logs", "pages/6_Logs.py"),
         ]
 
         for label, path in pages:

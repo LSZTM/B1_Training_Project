@@ -209,4 +209,4 @@ if not st.session_state.connected or st.session_state.get("db_setup_mode"):
 # ──────────────────────────────────────────────────────────────────────────────
 if not st.session_state.redirected:
     st.session_state.redirected = True
-    st.switch_page("pages/1_Overview.py")
+    st.switch_page("pages/1_Welcome.py")
