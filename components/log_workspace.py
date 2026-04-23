@@ -278,12 +278,12 @@ def render_log_workspace_html(
             grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
             gap: 18px;
             min-height: 780px;
-            font-family: var(--font-body, sans-serif);
+            font-family: var(--font-body, Georgia, 'Times New Roman', serif);
         }}
         .dg-log-pane {{
-            background: var(--bg-raised, #0e1018);
-            border: 1px solid var(--border-subtle, #1a1e2e);
-            border-radius: 18px;
+            background: var(--bg-raised, #211e19);
+            border: 1px solid var(--border-subtle, #332d25);
+            border-radius: 12px;
             overflow: hidden;
         }}
         .dg-log-pane-header {{
@@ -292,16 +292,17 @@ def render_log_workspace_html(
             align-items: center;
             gap: 12px;
             padding: 14px 16px;
-            border-bottom: 1px solid var(--border-subtle, #1a1e2e);
-            background: linear-gradient(180deg, rgba(79,111,255,0.08), rgba(79,111,255,0.01));
+            border-bottom: 1px solid var(--border-subtle, #332d25);
+            background: var(--bg-elevated, #29251f);
         }}
         .dg-log-pane-title {{
-            color: var(--text-primary, #eaedf5);
+            color: var(--text-primary, #e8e0d4);
+            font-family: var(--font-display, Georgia, 'Times New Roman', serif);
             font-weight: 600;
             font-size: 0.96rem;
         }}
         .dg-log-pane-sub {{
-            color: var(--text-secondary, #8b91aa);
+            color: var(--text-faint, #756a5d);
             font-family: var(--font-mono, monospace);
             font-size: 0.72rem;
             letter-spacing: 0.06em;
@@ -315,9 +316,9 @@ def render_log_workspace_html(
         }}
         .dg-log-jump {{
             display: none;
-            border: 1px solid rgba(79,111,255,0.34);
-            background: rgba(79,111,255,0.12);
-            color: #e6ebff;
+            border: 1px solid rgba(200,169,110,0.42);
+            background: rgba(200,169,110,0.12);
+            color: var(--accent, #c8a96e);
             border-radius: 999px;
             padding: 6px 10px;
             cursor: pointer;
@@ -331,15 +332,13 @@ def render_log_workspace_html(
             height: 720px;
             overflow-y: auto;
             padding: 12px;
-            background:
-                radial-gradient(circle at top right, rgba(224,64,96,0.08), transparent 22%),
-                radial-gradient(circle at bottom left, rgba(79,111,255,0.06), transparent 20%);
+            background: var(--bg-base, #1a1815);
         }}
         .dg-log-group {{
             margin-bottom: 14px;
-            border: 1px solid rgba(255,255,255,0.03);
-            border-radius: 14px;
-            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-subtle, #332d25);
+            border-radius: 10px;
+            background: var(--bg-raised, #211e19);
         }}
         .dg-log-group summary {{
             list-style: none;
@@ -349,8 +348,8 @@ def render_log_workspace_html(
             gap: 12px;
             cursor: pointer;
             padding: 12px 14px;
-            color: var(--text-primary, #eaedf5);
-            font-weight: 600;
+            color: var(--text-primary, #e8e0d4);
+            font-family: var(--font-display, Georgia, 'Times New Roman', serif);
         }}
         .dg-log-group summary::-webkit-details-marker {{
             display: none;
@@ -362,18 +361,18 @@ def render_log_workspace_html(
             flex-wrap: wrap;
         }}
         .dg-log-row {{
-            border-top: 1px solid rgba(255,255,255,0.04);
-            transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+            border-top: 1px solid var(--border-subtle, #332d25);
+            transition: background 300ms ease-in-out, border-color 300ms ease-in-out;
         }}
         .dg-log-row.is-new {{
             animation: dg-log-flash 1.2s ease;
         }}
         .dg-log-row:hover {{
-            background: rgba(255,255,255,0.03);
+            background: var(--bg-elevated, #29251f);
         }}
         .dg-log-row.selected {{
-            background: rgba(79,111,255,0.08);
-            border-left: 3px solid #4f6fff;
+            background: var(--bg-elevated, #29251f);
+            border-left: 2px solid rgba(200,169,110,0.72);
         }}
         .dg-log-row-main {{
             display: block;
@@ -382,7 +381,7 @@ def render_log_workspace_html(
             color: inherit;
         }}
         .dg-log-row-message {{
-            color: var(--text-primary, #eaedf5);
+            color: var(--text-primary, #e8e0d4);
             font-size: 0.9rem;
             line-height: 1.45;
             margin-bottom: 8px;
@@ -398,53 +397,52 @@ def render_log_workspace_html(
             gap: 6px;
             padding: 3px 9px;
             border-radius: 999px;
-            border: 1px solid rgba(255,255,255,0.08);
-            color: var(--text-secondary, #8b91aa);
+            border: 1px solid var(--border-default, #40382e);
+            color: var(--text-muted, #a79b8b);
             font-size: 0.68rem;
             text-decoration: none;
-            background: rgba(255,255,255,0.02);
+            background: var(--bg-elevated, #29251f);
         }}
         .dg-log-chip.mono {{
             font-family: var(--font-mono, monospace);
         }}
         .dg-log-chip.severity.debug {{
-            color: #9ca3af;
-            border-color: rgba(156,163,175,0.24);
-            background: rgba(156,163,175,0.12);
+            color: var(--debug, #8d887f);
+            border-color: rgba(141,136,127,0.38);
+            background: var(--debug-soft, rgba(141,136,127,0.11));
         }}
         .dg-log-chip.severity.info {{
-            color: #7dd3fc;
-            border-color: rgba(56,189,248,0.24);
-            background: rgba(56,189,248,0.12);
+            color: var(--text-secondary, #c9bdad);
+            border-color: var(--border-default, #40382e);
+            background: var(--bg-elevated, #29251f);
         }}
         .dg-log-chip.severity.warning {{
-            color: #facc15;
-            border-color: rgba(250,204,21,0.28);
-            background: rgba(250,204,21,0.12);
+            color: var(--warning, #c39a57);
+            border-color: rgba(195,154,87,0.44);
+            background: var(--warning-soft, rgba(195,154,87,0.12));
         }}
         .dg-log-chip.severity.error {{
-            color: #fb7185;
-            border-color: rgba(251,113,133,0.28);
-            background: rgba(251,113,133,0.12);
+            color: var(--danger, #c57962);
+            border-color: rgba(197,121,98,0.46);
+            background: var(--danger-soft, rgba(197,121,98,0.13));
         }}
         .dg-log-chip.severity.critical {{
-            color: #f5d0fe;
-            border-color: rgba(217,70,239,0.34);
-            background: rgba(190,24,93,0.24);
-            box-shadow: 0 0 0 1px rgba(190,24,93,0.2) inset;
+            color: var(--critical, #d08a7f);
+            border-color: rgba(208,138,127,0.56);
+            background: var(--critical-soft, rgba(208,138,127,0.16));
         }}
         .dg-log-chip.status.started {{
-            color: #fde68a;
-            background: rgba(234,179,8,0.12);
+            color: var(--warning, #c39a57);
+            background: var(--warning-soft, rgba(195,154,87,0.12));
         }}
         .dg-log-chip.status.passed,
         .dg-log-chip.status.completed {{
-            color: #86efac;
-            background: rgba(34,197,94,0.12);
+            color: var(--success, #8fa982);
+            background: var(--success-soft, rgba(143,169,130,0.12));
         }}
         .dg-log-chip.status.failed {{
-            color: #fca5a5;
-            background: rgba(239,68,68,0.12);
+            color: var(--danger, #c57962);
+            background: var(--danger-soft, rgba(197,121,98,0.13));
         }}
         .dg-log-detail {{
             height: 100%;
@@ -460,13 +458,14 @@ def render_log_workspace_html(
             margin-bottom: 14px;
         }}
         .dg-log-detail-title {{
-            color: var(--text-primary, #eaedf5);
+            color: var(--text-primary, #e8e0d4);
+            font-family: var(--font-display, Georgia, 'Times New Roman', serif);
             font-size: 1rem;
             font-weight: 700;
             line-height: 1.45;
         }}
         .dg-log-detail-meta {{
-            color: var(--text-secondary, #8b91aa);
+            color: var(--text-faint, #756a5d);
             font-family: var(--font-mono, monospace);
             font-size: 0.74rem;
             margin-top: 8px;
@@ -485,9 +484,9 @@ def render_log_workspace_html(
             text-decoration: none;
             padding: 8px 12px;
             border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.1);
-            color: var(--text-primary, #eaedf5);
-            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border-default, #40382e);
+            color: var(--text-secondary, #c9bdad);
+            background: var(--bg-elevated, #29251f);
             cursor: pointer;
             font-size: 0.74rem;
         }}
@@ -501,14 +500,14 @@ def render_log_workspace_html(
             margin-bottom: 14px;
         }}
         .dg-log-detail-block {{
-            background: rgba(255,255,255,0.02);
-            border: 1px solid rgba(255,255,255,0.04);
-            border-radius: 14px;
+            background: var(--bg-raised, #211e19);
+            border: 1px solid var(--border-subtle, #332d25);
+            border-radius: 10px;
             padding: 12px;
             margin-bottom: 12px;
         }}
         .dg-log-detail-label {{
-            color: var(--text-secondary, #8b91aa);
+            color: var(--text-faint, #756a5d);
             font-family: var(--font-mono, monospace);
             font-size: 0.68rem;
             text-transform: uppercase;
@@ -516,7 +515,7 @@ def render_log_workspace_html(
             margin-bottom: 8px;
         }}
         .dg-log-detail-value {{
-            color: var(--text-primary, #eaedf5);
+            color: var(--text-primary, #e8e0d4);
             font-size: 0.9rem;
             word-break: break-word;
         }}
@@ -526,7 +525,7 @@ def render_log_workspace_html(
             word-break: break-word;
             font-size: 0.77rem;
             line-height: 1.55;
-            color: #dbe6ff;
+            color: var(--text-secondary, #c9bdad);
             font-family: var(--font-mono, monospace);
         }}
         .dg-log-related-row {{
@@ -536,15 +535,15 @@ def render_log_workspace_html(
             padding: 8px 0;
             color: inherit;
             text-decoration: none;
-            border-top: 1px solid rgba(255,255,255,0.03);
+            border-top: 1px solid var(--border-subtle, #332d25);
         }}
         .dg-log-related-time {{
             font-family: var(--font-mono, monospace);
             font-size: 0.68rem;
-            color: var(--text-secondary, #8b91aa);
+            color: var(--text-faint, #756a5d);
         }}
         .dg-log-related-message {{
-            color: var(--text-primary, #eaedf5);
+            color: var(--text-primary, #e8e0d4);
             font-size: 0.82rem;
         }}
         .dg-log-detail-footer {{
@@ -554,17 +553,17 @@ def render_log_workspace_html(
             margin-top: 12px;
         }}
         .dg-log-empty-title {{
-            color: var(--text-primary, #eaedf5);
+            color: var(--text-primary, #e8e0d4);
             font-size: 1rem;
             font-weight: 700;
             margin-bottom: 8px;
         }}
         .dg-log-empty-text {{
-            color: var(--text-secondary, #8b91aa);
+            color: var(--text-muted, #a79b8b);
             line-height: 1.55;
         }}
         @keyframes dg-log-flash {{
-            0% {{ background: rgba(79,111,255,0.18); }}
+            0% {{ background: rgba(200,169,110,0.16); }}
             100% {{ background: transparent; }}
         }}
         @media (max-width: 1100px) {{

@@ -1,206 +1,225 @@
 from components.sidebar import render_sidebar
+
 render_sidebar()
 
-import streamlit as st
 import pandas as pd
-import time
+import streamlit as st
+
 from services.validation_service import ValidationService
 from utils.styles import load_css
 
+
 load_css()
 
-# ── Connection guard ──────────────────────────────────────────────────────────
 if "connected" not in st.session_state:
     st.session_state.connected = False
 if not st.session_state.get("boot_complete", False):
     st.stop()
 
-# ── Page header ───────────────────────────────────────────────────────────────
+if "execute_step" not in st.session_state:
+    st.session_state.execute_step = 1
+if "selected_tables" not in st.session_state:
+    st.session_state.selected_tables = []
+if "execute_mode" not in st.session_state:
+    st.session_state.execute_mode = "Complete ruleset"
+if "execute_schedule" not in st.session_state:
+    st.session_state.execute_schedule = "Run now"
+
+
+def next_step():
+    st.session_state.execute_step = min(3, st.session_state.execute_step + 1)
+
+
+def prev_step():
+    st.session_state.execute_step = max(1, st.session_state.execute_step - 1)
+
+
+def reset_workflow():
+    st.session_state.execute_step = 1
+    st.session_state.selected_tables = []
+    st.session_state.execute_mode = "Complete ruleset"
+    st.session_state.execute_schedule = "Run now"
+
+
 st.markdown(
     """
     <div class="dg-page-header">
-        <div class="dg-page-eyebrow">Execution Engine</div>
-        <div class="dg-page-title">Run Validations</div>
-        <div class="dg-page-desc">Define the scope of your validation run, configure parameters, and execute or schedule.</div>
+        <div class="dg-page-eyebrow">Run Validations</div>
+        <div class="dg-page-title">Choose the scope, then let the rules speak.</div>
+        <div class="dg-page-desc">A three-step validation run: select the database surface, choose the ruleset posture, and confirm the evidence to write.</div>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-# ── Initialize session state for the workflow ─────────────────────────────────
-if "execute_step" not in st.session_state:
-    st.session_state.execute_step = 1
-if "selected_tables" not in st.session_state:
-    st.session_state.selected_tables = []
-
-def next_step(): st.session_state.execute_step += 1
-def prev_step(): st.session_state.execute_step -= 1
-def reset_workflow():
-    st.session_state.execute_step = 1
-    st.session_state.selected_tables = []
-
-# ── Step Indicator ────────────────────────────────────────────────────────────
-steps = ["1. Select Scope", "2. Configure", "3. Execute"]
-step_cols = st.columns(len(steps))
-for i, label in enumerate(steps):
-    is_active = st.session_state.execute_step == (i + 1)
-    is_done = st.session_state.execute_step > (i + 1)
-    
-    with step_cols[i]:
-        variant = "success" if is_done else "info" if is_active else "neutral"
+step_cols = st.columns(3, gap="medium")
+step_defs = [
+    ("01", "Select scope", "Connection, schema, and table surface"),
+    ("02", "Choose rules", "Ruleset, timing, and execution posture"),
+    ("03", "Confirm", "Review before the engine writes history"),
+]
+for index, (number, title, meta) in enumerate(step_defs, start=1):
+    with step_cols[index - 1]:
+        state = "active" if st.session_state.execute_step == index else "done" if st.session_state.execute_step > index else ""
         st.markdown(
             f"""
-            <div class="dg-badge {variant}" style="width: 100%; justify-content: center; padding: 10px; border-radius: 99px;">
-                {label}
+            <div class="dg-step {state}">
+                <div class="dg-step-index">{number}</div>
+                <div class="dg-step-title">{title}</div>
+                <div class="dg-step-meta">{meta}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-st.markdown("<br>", unsafe_allow_html=True)
 
-# ── STEP 1: Select Scope ──────────────────────────────────────────────────────
 if st.session_state.execute_step == 1:
-    st.markdown('<div class="dg-section-label">Target Selection</div>', unsafe_allow_html=True)
-    
+    st.markdown('<div class="dg-section-label">Scope</div>', unsafe_allow_html=True)
+
     all_tables = ValidationService.get_db_tables()
     if not all_tables:
-        st.warning("No tables found in the current database. Please ensure your schema is populated.")
+        st.warning("No tables were found in the connected database.")
         st.stop()
-    
-    # Create a DataFrame for the data_editor
-    table_df = pd.DataFrame({"Table Name": all_tables, "Selected": False})
-    
-    # Pre-select if already in session state
-    if st.session_state.selected_tables:
-        table_df.loc[table_df["Table Name"].isin(st.session_state.selected_tables), "Selected"] = True
 
-    st.markdown("#### Select tables to include in this validation run")
+    table_df = pd.DataFrame({"Table": all_tables, "Include": False})
+    if st.session_state.selected_tables:
+        table_df.loc[table_df["Table"].isin(st.session_state.selected_tables), "Include"] = True
+
+    st.markdown(
+        """
+        <div class="dg-card compact">
+            <div class="dg-card-title">Selection</div>
+            <div class="dg-card-copy">Choose the tables that belong in this validation run. The ledger below is intentionally plain: scope first, noise never.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     edited_df = st.data_editor(
         table_df,
         column_config={
-            "Selected": st.column_config.CheckboxColumn(
-                "Select",
-                help="Mark tables for validation",
-                default=False,
-            ),
-            "Table Name": st.column_config.TextColumn(
-                "Database Table",
-                disabled=True,
-            )
+            "Include": st.column_config.CheckboxColumn("Include", default=False),
+            "Table": st.column_config.TextColumn("SQL table", disabled=True),
         },
         use_container_width=True,
         hide_index=True,
-        key="table_selector"
+        key="table_selector",
     )
-    
-    selected_list = edited_df[edited_df["Selected"]]["Table Name"].tolist()
+
+    selected_list = edited_df[edited_df["Include"]]["Table"].tolist()
     st.session_state.selected_tables = selected_list
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    c1, c2, c3 = st.columns([1, 1, 1])
-    with c2:
-        if st.button("Continue to Configuration", type="primary", use_container_width=True, disabled=not selected_list):
+
+    _, action_col, _ = st.columns([1, 1, 1])
+    with action_col:
+        if st.button("Continue", type="primary", use_container_width=True, disabled=not selected_list):
             next_step()
             st.rerun()
-    if not selected_list:
-        st.caption("Please select at least one table to continue.")
 
-# ── STEP 2: Configure ─────────────────────────────────────────────────────────
+    if not selected_list:
+        st.caption("Select at least one table to continue.")
+
 elif st.session_state.execute_step == 2:
-    st.markdown('<div class="dg-section-label">Rule Configuration</div>', unsafe_allow_html=True)
-    
-    num_selected = len(st.session_state.selected_tables)
-    st.markdown(f"**{num_selected} Tables Selected:** `{', '.join(st.session_state.selected_tables)}`")
-    
+    st.markdown('<div class="dg-section-label">Ruleset posture</div>', unsafe_allow_html=True)
+
+    st.markdown(
+        f"""
+        <div class="dg-row state-neutral">
+            <div class="dg-row-title">{len(st.session_state.selected_tables)} tables selected</div>
+            <div class="dg-row-meta">{', '.join(st.session_state.selected_tables)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     with st.container(border=True):
-        st.markdown("#### Validation Mode")
-        run_mode = st.radio(
-            "Select how rules should be applied:",
-            ["Complete Ruleset (Recommended)", "Quick Scan (Type & Format only)", "Active Rules Only"],
-            help="Complete Ruleset runs all defined and suggested rules. Quick Scan focuses on schema type mismatches."
+        st.session_state.execute_mode = st.radio(
+            "Ruleset",
+            ["Complete ruleset", "Quick scan", "Active rules only"],
+            horizontal=True,
+            help="Complete ruleset runs every available validation rule for the selected scope.",
         )
-        
-        st.markdown("---")
-        st.markdown("#### Execution Parameters")
-        fast_fail = st.toggle("Fast Fail", value=False, help="Stop individual table validation on first error.")
-        sample_run = st.toggle("Sample Data Only", value=False, help="Only validate the first 10,000 rows.")
-        
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    c1, c2, c3 = st.columns([1, 1, 1])
+        st.session_state.execute_schedule = st.radio(
+            "Schedule",
+            ["Run now", "Schedule for later"],
+            horizontal=True,
+        )
+        fast_fail = st.toggle("Stop each table on first blocking failure", value=False)
+        sample_run = st.toggle("Sample first 10,000 rows only", value=False)
+
+    st.session_state.execute_fast_fail = fast_fail
+    st.session_state.execute_sample_run = sample_run
+
+    c1, _, c3 = st.columns([1, 1, 1])
     with c1:
-        if st.button("Back to Selection", use_container_width=True):
+        if st.button("Back", use_container_width=True):
             prev_step()
             st.rerun()
     with c3:
-        if st.button("Proceed to Run", type="primary", use_container_width=True):
+        if st.button("Review run", type="primary", use_container_width=True):
             next_step()
             st.rerun()
 
-# ── STEP 3: Execute ───────────────────────────────────────────────────────────
 elif st.session_state.execute_step == 3:
-    st.markdown('<div class="dg-section-label">Review & Launch</div>', unsafe_allow_html=True)
-    
-    col_l, col_r = st.columns(2, gap="large")
-    
-    with col_l:
-        st.markdown("#### Run Summary")
-        summary_html = f"""
-        <div class="dg-card">
-            <div style="margin-bottom: 12px; display: flex; justify-content: space-between;">
-                <span style="color: var(--text-muted);">Scope:</span>
-                <span style="color: var(--text-primary); font-weight: 600;">{len(st.session_state.selected_tables)} Tables</span>
+    st.markdown('<div class="dg-section-label">Review</div>', unsafe_allow_html=True)
+
+    left, right = st.columns([1.1, 1], gap="large")
+    with left:
+        st.markdown(
+            f"""
+            <div class="dg-metric hero">
+                <div class="dg-metric-label">Validation scope</div>
+                <div class="dg-metric-value">{len(st.session_state.selected_tables)}</div>
+                <div class="dg-metric-sub">tables will be checked by the SQL validation engine</div>
             </div>
-            <div style="margin-bottom: 12px; display: flex; justify-content: space-between;">
-                <span style="color: var(--text-muted);">Mode:</span>
-                <span class="dg-badge info">Complete Ruleset</span>
-            </div>
-            <div style="margin-bottom: 12px; display: flex; justify-content: space-between;">
-                <span style="color: var(--text-muted);">Auto-Remediation:</span>
-                <span style="color: var(--danger);">Disabled</span>
-            </div>
-        </div>
-        """
-        st.markdown(summary_html, unsafe_allow_html=True)
-        
-        if st.button("Run All Validations Now", type="primary", use_container_width=True):
-            with st.spinner("Initializing engine and executing rules..."):
-                # Simulation of per-table run if needed, but for now we follow existing service
-                # In a real fix, we'd pass selected_tables to run_all_validations
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with right:
+        review_rows = [
+            ("Ruleset", st.session_state.execute_mode),
+            ("Schedule", st.session_state.execute_schedule),
+            ("Fast fail", "On" if st.session_state.get("execute_fast_fail") else "Off"),
+            ("Sample run", "On" if st.session_state.get("execute_sample_run") else "Off"),
+        ]
+        for label, value in review_rows:
+            st.markdown(
+                f"""
+                <div class="dg-row state-neutral">
+                    <div class="dg-row-title">{label}: {value}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    c1, _, c3 = st.columns([1, 1, 1])
+    with c1:
+        if st.button("Back to rules", use_container_width=True):
+            prev_step()
+            st.rerun()
+    with c3:
+        if st.button("Run validations", type="primary", use_container_width=True):
+            with st.spinner("Running validations... this may take a moment."):
                 result = ValidationService.run_all_validations(table_names=st.session_state.selected_tables)
-                
+
             if result.get("success"):
-                st.success(f"Execution Complete! {result.get('total_errors', 0):,} errors found.")
-                st.balloons()
-                time.sleep(2)
-                st.switch_page("pages/4_History.py")
+                status = result.get("status", "COMPLETED")
+                total_errors = result.get("total_errors", 0)
+                st.markdown(
+                    f"""
+                    <div class="dg-row {'state-pass' if total_errors == 0 else 'state-fail'}">
+                        <div class="dg-row-title">Validation run {status.lower()}</div>
+                        <div class="dg-row-meta">{total_errors:,} failures recorded. Open Results & History for the run ledger.</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                if st.button("Open Results & History", use_container_width=True):
+                    st.switch_page("pages/4_History.py")
             else:
-                st.error(f"Execution Failed: {result.get('error', 'Unknown Error')}")
+                st.error(f"Execution failed: {result.get('error', 'Unknown error')}")
 
-    with col_r:
-        st.markdown("#### Schedule Run")
-        with st.container(border=True):
-            st.markdown("Automate this validation scope for future runs.")
-            freq = st.selectbox("Frequency", ["Every Hour", "Daily at midnight", "Weekly (Sundays)", "Custom CRON"])
-            notif = st.text_input("Alert Email", placeholder="data-ops@company.com")
-            
-            if st.button("Save Schedule", use_container_width=True):
-                st.info("Schedule recorded. DataGuard daemon will pick up this task.")
-                # Here we would normally save to a schedules table.
-                # execute_sql("INSERT INTO schedules (tables, freq, ...) ...")
-                time.sleep(1.5)
-                st.session_state.execute_step = 1
-                st.rerun()
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("Recap Configuration", use_container_width=True):
-        prev_step()
-        st.rerun()
-
-# ── Empty State / Reset ───────────────────────────────────────────────────────
 st.sidebar.markdown("---")
-if st.sidebar.button("Reset Workflow", use_container_width=True):
+if st.sidebar.button("Reset workflow", use_container_width=True):
     reset_workflow()
     st.rerun()

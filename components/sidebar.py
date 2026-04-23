@@ -7,7 +7,7 @@ def render_sidebar():
             """
             <div class="dg-brand">
                 <div class="dg-brand-logo">Data<span>Guard</span></div>
-                <div class="dg-brand-tag">Validation Console</div>
+                <div class="dg-brand-tag">SQL Server validation console</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -15,21 +15,17 @@ def render_sidebar():
 
         connected = st.session_state.get("connected", False)
         status_class = "verified" if connected else "locked"
-        status_text = "Connected" if connected else "Disconnected"
-
-        # Dynamic database label
-        db_label = st.session_state.get("db_selected_database", "No database link")
+        status_text = "Linked" if connected else "Not linked"
+        db_label = st.session_state.get("db_selected_database", "No database selected") if connected else "No database selected"
         server_label = st.session_state.get("db_selected_server", "")
-        if not connected:
-            db_label = "No database link"
 
         st.markdown(
             f"""
             <div class="dg-status {status_class}">
                 <div class="dg-status-dot"></div>
                 <div>
-                    <div style="font-weight:500;">{status_text}</div>
-                    <div style="opacity:0.6;font-size:0.65rem;margin-top:1px;">{db_label}</div>
+                    <div>{status_text}</div>
+                    <div style="color:var(--text-faint);font-size:0.65rem;margin-top:3px;">{db_label}</div>
                 </div>
             </div>
             """,
@@ -39,10 +35,10 @@ def render_sidebar():
         if connected and server_label:
             st.caption(f"Server: `{server_label}`")
 
-        st.markdown('<div class="dg-nav-label">Navigation</div>', unsafe_allow_html=True)
+        st.markdown('<div class="dg-nav-label">Rooms</div>', unsafe_allow_html=True)
 
         pages = [
-            ("Quick Start", "pages/1_Welcome.py"),
+            ("Welcome", "pages/1_Welcome.py"),
             ("Health Dashboard", "pages/2_Dashboard.py"),
             ("Run Validations", "pages/3_Execute.py"),
             ("Results & History", "pages/4_History.py"),
@@ -59,22 +55,23 @@ def render_sidebar():
 
             rule_values = ValidationService.get_error_codes()
             rule_count = len(rule_values) if rule_values else 0
-            context_count = 0
+            active_rules = ValidationService.get_validation_rules()
+            context_count = active_rules["table_name"].nunique() if not active_rules.empty and "table_name" in active_rules else 0
         except Exception:
             rule_count, context_count = 0, 0
 
         st.markdown(
             f"""
             <div class="dg-registry">
-                <div class="dg-registry-label">Rule Registry</div>
+                <div class="dg-registry-label">Rule registry</div>
                 <div class="dg-registry-stats">
                     <div>
                         <div class="dg-registry-stat-val">{rule_count}</div>
-                        <div class="dg-registry-stat-key">Rules</div>
+                        <div class="dg-registry-stat-key">codes</div>
                     </div>
                     <div>
                         <div class="dg-registry-stat-val">{context_count}</div>
-                        <div class="dg-registry-stat-key">Contexts</div>
+                        <div class="dg-registry-stat-key">tables</div>
                     </div>
                 </div>
             </div>
@@ -89,9 +86,9 @@ def render_sidebar():
             st.session_state.redirected = False
             st.switch_page("main.py")
 
-        if st.button("Refresh App", use_container_width=True):
+        if st.button("Refresh", use_container_width=True):
             st.rerun()
 
-        if st.button("Reconnect DB", use_container_width=True):
+        if st.button("Reconnect", use_container_width=True):
             st.session_state.boot_complete = False
             st.rerun()
