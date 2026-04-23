@@ -385,11 +385,21 @@ def load_css():
             font-size: 2.15rem;
             line-height: 1;
             letter-spacing: -0.035em;
+            max-width: 100%;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
 
         .dg-metric.hero .dg-metric-value {
             color: var(--accent);
-            font-size: clamp(3rem, 7vw, 5.2rem);
+            font-size: clamp(2.55rem, 5vw, 4.4rem);
+            line-height: 0.98;
+        }
+
+        .dg-fit-value {
+            display: block;
+            hyphens: auto;
+            white-space: normal;
         }
 
         .dg-metric.success { border-left: 1px solid var(--success); }
