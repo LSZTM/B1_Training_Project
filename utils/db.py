@@ -19,6 +19,11 @@ SESSION_CONN_STR_KEY = "db_connection_string"
 SESSION_DB_NAME_KEY = "db_selected_database"
 SESSION_SERVER_KEY = "db_selected_server"
 
+
+def requires_sql_auth(server):
+    """Ngrok TCP endpoints cannot use local Windows/SSPI credentials."""
+    return "ngrok" in str(server or "").lower()
+
 # ── Available ODBC drivers ────────────────────────────────────────────────────
 def get_available_drivers():
     """Return a list of installed SQL Server ODBC drivers."""
@@ -37,8 +42,12 @@ def build_connection_string(server, database, driver=None, username=None, passwo
     # Ensure driver is wrapped in braces
     if not driver.startswith("{"):
         driver = "{" + driver + "}"
-    if username and password:
-        return f"DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password};"
+    if username or password:
+        if not username or not password:
+            raise ValueError("SQL Server Authentication requires both username and password.")
+        return f"DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password};TrustServerCertificate=yes;"
+    if requires_sql_auth(server):
+        raise ValueError("Ngrok SQL Server connections require SQL Server Authentication. Windows Authentication cannot cross the ngrok TCP tunnel.")
     return f"DRIVER={driver};SERVER={server};DATABASE={database};Trusted_Connection=yes;"
 
 # ── Cache helpers ─────────────────────────────────────────────────────────────
@@ -70,7 +79,10 @@ def discover_server_connection(server=None, driver=None, username=None, password
     target_pass = password or os.environ.get("DB_PASSWORD")
 
     if target_server:
-        conn_str = build_connection_string(target_server, "master", target_driver, target_user, target_pass)
+        try:
+            conn_str = build_connection_string(target_server, "master", target_driver, target_user, target_pass)
+        except ValueError as e:
+            raise ConnectionError(str(e))
         try:
             conn = pyodbc.connect(conn_str, timeout=10)
             conn.close()
@@ -136,7 +148,10 @@ def switch_database(database, server=None, driver=None, username=None, password=
         except ConnectionError:
             raise ConnectionError("No server configured and local discovery failed.")
 
-    conn_str = build_connection_string(target_server, database, target_driver, target_user, target_pass)
+    try:
+        conn_str = build_connection_string(target_server, database, target_driver, target_user, target_pass)
+    except ValueError as e:
+        raise ConnectionError(str(e))
     try:
         conn = pyodbc.connect(conn_str, timeout=10)
         conn.close()
@@ -164,7 +179,10 @@ def discover_working_connection_string():
     env_password = os.environ.get("DB_PASSWORD")
 
     if env_server:
-        conn_str = build_connection_string(env_server, env_database, env_driver, env_username, env_password)
+        try:
+            conn_str = build_connection_string(env_server, env_database, env_driver, env_username, env_password)
+        except ValueError as e:
+            raise ConnectionError(str(e))
         try:
             conn = pyodbc.connect(conn_str, timeout=10)
             conn.close()
