@@ -2,6 +2,8 @@ from components.sidebar import render_sidebar
 
 render_sidebar()
 
+import html
+
 import streamlit as st
 
 from services.validation_service import ValidationService
@@ -15,15 +17,15 @@ if "connected" not in st.session_state:
 if not st.session_state.get("boot_complete", False):
     st.stop()
 
-db_name = st.session_state.get("db_selected_database", "Current database")
-server_name = st.session_state.get("db_selected_server", "SQL Server")
+db_name = html.escape(str(st.session_state.get("db_selected_database", "Current database")))
+server_name = html.escape(str(st.session_state.get("db_selected_server", "SQL Server")))
 
 st.markdown(
     """
     <div class="dg-page-header">
         <div class="dg-page-eyebrow">Welcome</div>
-        <div class="dg-page-title">A quieter way to validate SQL Server data.</div>
-        <div class="dg-page-desc">DataGuard runs rule-based checks, records failures, and keeps validation activity traceable from run to log.</div>
+        <div class="dg-page-title">Find broken data before it becomes business truth.</div>
+        <div class="dg-page-desc">DataGuard turns SQL Server validation into evidence: rules run, failures surface, and every result remains traceable from run to log.</div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -41,7 +43,7 @@ with hero_col:
         f"""
         <div class="dg-metric hero">
             <div class="dg-metric-label">Current validation room</div>
-            <div class="dg-metric-value">{db_name}</div>
+            <div class="dg-metric-value dg-fit-value">{db_name}</div>
             <div class="dg-metric-sub">{server_name}</div>
         </div>
         """,
