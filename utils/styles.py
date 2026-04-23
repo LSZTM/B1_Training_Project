@@ -1,94 +1,140 @@
-﻿import streamlit as st
+import streamlit as st
+
+
+JAPANDI_COLORS = {
+    "bg_base": "#1a1815",
+    "bg_alt": "#191714",
+    "surface": "#211e19",
+    "surface_raised": "#29251f",
+    "surface_soft": "#302b24",
+    "border": "#40382e",
+    "border_soft": "#332d25",
+    "text": "#e8e0d4",
+    "muted": "#a79b8b",
+    "faint": "#756a5d",
+    "gold": "#c8a96e",
+    "sage": "#8fa982",
+    "terracotta": "#c57962",
+    "ochre": "#c39a57",
+    "debug": "#8d887f",
+}
+
+
+def apply_japandi_plotly_theme(fig, *, accent: str | None = None):
+    """Apply the shared DataGuard Japandi chart treatment."""
+    color = accent or JAPANDI_COLORS["gold"]
+    fig.update_traces(
+        marker=dict(color=color),
+        line=dict(color=color, width=2),
+        selector=dict(type="scatter"),
+    )
+    fig.update_layout(
+        paper_bgcolor=JAPANDI_COLORS["bg_base"],
+        plot_bgcolor=JAPANDI_COLORS["surface"],
+        font=dict(family="Courier New, Consolas, monospace", color=JAPANDI_COLORS["muted"], size=12),
+        margin=dict(l=0, r=0, t=18, b=0),
+        colorway=[color, JAPANDI_COLORS["sage"], JAPANDI_COLORS["terracotta"], JAPANDI_COLORS["ochre"]],
+        xaxis=dict(
+            gridcolor=JAPANDI_COLORS["border_soft"],
+            zerolinecolor=JAPANDI_COLORS["border_soft"],
+            linecolor=JAPANDI_COLORS["border"],
+            tickfont=dict(color=JAPANDI_COLORS["faint"]),
+            title_font=dict(color=JAPANDI_COLORS["muted"]),
+        ),
+        yaxis=dict(
+            gridcolor=JAPANDI_COLORS["border_soft"],
+            zerolinecolor=JAPANDI_COLORS["border_soft"],
+            linecolor=JAPANDI_COLORS["border"],
+            tickfont=dict(color=JAPANDI_COLORS["faint"]),
+            title_font=dict(color=JAPANDI_COLORS["muted"]),
+        ),
+        legend=dict(
+            bgcolor="rgba(0,0,0,0)",
+            font=dict(color=JAPANDI_COLORS["muted"]),
+        ),
+    )
+    return fig
 
 
 def load_css():
     """
-    DataGuard Design System â€” Enterprise Dark Edition
-    Typography: Syne (display) + DM Mono (code/labels) + DM Sans (body)
-    Palette: Deep graphite base Â· Electric indigo accent Â· Warm off-white text
+    DataGuard Japandi Dark design system.
+
+    Named component patterns:
+    QuietMetricPanel: .dg-metric
+    LedgerTable: .dg-ledger / Streamlit dataframe overrides
+    SparseCard: .dg-card
+    SemanticBorderRow: .dg-row.state-*
+    WizardStep: .dg-step
+    LogLedgerPane: .dg-log-* in components/log_workspace.py
     """
     st.markdown(
         """
-        <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
-
         <style>
-        /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-           DESIGN TOKENS
-        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         :root {
-            /* Surface layers */
-            --bg-base:        #040507;
-            --bg-raised:      #0b0e14;
-            --bg-elevated:    #11141b;
-            --bg-overlay:     #181c25;
-            --bg-hover:       #1e232e;
+            --bg-base: #1a1815;
+            --bg-alt: #191714;
+            --bg-raised: #211e19;
+            --bg-elevated: #29251f;
+            --bg-soft: #302b24;
+            --bg-hover: #383126;
 
-            /* Borders */
-            --border-subtle:  #141820;
-            --border-default: #1c222d;
-            --border-accent:  #3b4a6b;
+            --border-subtle: #332d25;
+            --border-default: #40382e;
+            --border-strong: #5b4d3d;
 
-            /* Text */
-            --text-primary:   #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-muted:     #475569;
-            --text-disabled:  #1e293b;
+            --text-primary: #e8e0d4;
+            --text-secondary: #c9bdad;
+            --text-muted: #a79b8b;
+            --text-faint: #756a5d;
 
-            /* Accent â€” Electric Indigo */
-            --accent:         #6366f1;
-            --accent-dim:     rgba(99, 102, 241, 0.12);
-            --accent-glow:    rgba(99, 102, 241, 0.06);
+            --accent: #c8a96e;
+            --accent-soft: rgba(200, 169, 110, 0.14);
 
-            /* Semantic */
-            --success:        #06b6d4; /* Cyber Cyan */
-            --success-dim:    rgba(6, 182, 212, 0.1);
-            --warning:        #f59e0b; /* Amber */
-            --warning-dim:    rgba(245, 158, 11, 0.1);
-            --danger:         #f43f5e; /* Rose 500 */
-            --danger-dim:     rgba(244, 63, 94, 0.12);
-            --info:           #0ea5e9; /* Sky */
-            --info-dim:       rgba(14, 165, 233, 0.1);
+            --success: #8fa982;
+            --success-soft: rgba(143, 169, 130, 0.12);
+            --warning: #c39a57;
+            --warning-soft: rgba(195, 154, 87, 0.12);
+            --danger: #c57962;
+            --danger-soft: rgba(197, 121, 98, 0.13);
+            --critical: #d08a7f;
+            --critical-soft: rgba(208, 138, 127, 0.16);
+            --debug: #8d887f;
+            --debug-soft: rgba(141, 136, 127, 0.11);
 
-            /* Typography */
-            --font-display:   'Syne', sans-serif;
-            --font-body:      'DM Sans', sans-serif;
-            --font-mono:      'DM Mono', monospace;
+            --font-display: Georgia, 'Times New Roman', serif;
+            --font-body: Georgia, 'Times New Roman', serif;
+            --font-mono: 'Courier New', Consolas, monospace;
 
-            /* Radius */
-            --radius-sm:      6px;
-            --radius-md:      10px;
-            --radius-lg:      14px;
-            --radius-xl:      20px;
-
-            /* Shadows & Glows */
-            --shadow-sm:      0 1px 3px rgba(0,0,0,0.6);
-            --shadow-md:      0 4px 20px rgba(0,0,0,0.5);
-            --shadow-lg:      0 8px 32px rgba(0,0,0,0.6);
-            --glow-accent:    0 0 15px rgba(99, 102, 241, 0.2);
+            --radius-sm: 4px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --transition: 300ms ease-in-out;
         }
 
-        /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-           BASE RESET
-        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        html, body, [class*="css"] {
+        html, body, [class*="css"], .stApp {
             font-family: var(--font-body);
         }
 
         .stApp {
-            background-color: var(--bg-base);
+            background: var(--bg-base);
             color: var(--text-secondary);
         }
 
-        /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-           SIDEBAR
-        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        /* --- Sidebar --- */
+        header {
+            background: transparent !important;
+        }
+
+        .main .block-container {
+            padding: 42px 48px 70px !important;
+            max-width: 1260px !important;
+        }
+
         [data-testid="stSidebar"] {
-            background-color: var(--bg-raised) !important;
+            background: var(--bg-alt) !important;
             border-right: 1px solid var(--border-subtle) !important;
         }
 
-        /* Hide default Streamlit navigation */
         [data-testid="stSidebarNav"] {
             display: none !important;
         }
@@ -97,93 +143,92 @@ def load_css():
             padding: 0 !important;
         }
 
-        /* Brand */
         .dg-brand {
-            padding: 28px 22px 22px;
+            padding: 30px 22px 24px;
             border-bottom: 1px solid var(--border-subtle);
         }
 
         .dg-brand-logo {
             font-family: var(--font-display);
-            font-weight: 800;
-            font-size: 1.2rem;
+            font-size: 1.28rem;
             color: var(--text-primary);
-            letter-spacing: -0.02em;
+            letter-spacing: 0.01em;
         }
 
         .dg-brand-logo span {
             color: var(--accent);
         }
 
-        .dg-brand-tag {
+        .dg-brand-tag,
+        .dg-nav-label,
+        .dg-page-eyebrow,
+        .dg-section-label,
+        .dg-card-title,
+        .dg-metric-label,
+        .dg-metric-sub,
+        .dg-status,
+        .dg-badge,
+        .dg-kicker,
+        .dg-mono,
+        .dg-step-index,
+        .dg-step-meta {
             font-family: var(--font-mono);
+        }
+
+        .dg-brand-tag {
             font-size: 0.62rem;
             letter-spacing: 0.18em;
             text-transform: uppercase;
-            color: var(--text-muted);
-            margin-top: 3px;
+            color: var(--text-faint);
+            margin-top: 5px;
         }
 
-        /* Nav section label */
         .dg-nav-label {
-            font-family: var(--font-mono);
-            font-size: 0.6rem;
+            font-size: 0.62rem;
             letter-spacing: 0.18em;
             text-transform: uppercase;
-            color: var(--text-disabled);
-            padding: 20px 22px 6px;
+            color: var(--text-faint);
+            padding: 22px 22px 7px;
         }
 
-        /* Status pill */
         .dg-status {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin: 10px 16px;
-            padding: 10px 14px;
+            gap: 10px;
+            margin: 14px 16px;
+            padding: 12px 14px;
+            border: 1px solid var(--border-default);
+            border-left-width: 2px;
             border-radius: var(--radius-md);
-            border: 1px solid;
-            font-family: var(--font-mono);
+            background: var(--bg-raised);
+            color: var(--text-muted);
             font-size: 0.72rem;
         }
 
-        .dg-status.locked {
-            background: rgba(224,64,96,0.06);
-            border-color: rgba(224,64,96,0.2);
-            color: #b05060;
+        .dg-status.verified {
+            border-left-color: var(--success);
         }
 
-        .dg-status.verified {
-            background: rgba(46,204,113,0.06);
-            border-color: rgba(46,204,113,0.2);
-            color: #3a9e5f;
+        .dg-status.locked {
+            border-left-color: var(--danger);
         }
 
         .dg-status-dot {
             width: 6px;
             height: 6px;
             border-radius: 50%;
+            background: var(--text-faint);
             flex-shrink: 0;
         }
 
-        .dg-status.locked  .dg-status-dot { background: #b05060; }
-        .dg-status.verified .dg-status-dot {
-            background: var(--success);
-            box-shadow: 0 0 6px rgba(46,204,113,0.6);
-            animation: pulse-dot 2.5s ease-in-out infinite;
-        }
+        .dg-status.verified .dg-status-dot { background: var(--success); }
+        .dg-status.locked .dg-status-dot { background: var(--danger); }
 
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 1; }
-            50%       { opacity: 0.45; }
-        }
-
-        /* Registry card */
         .dg-registry {
-            margin: 10px 16px;
-            padding: 12px 14px;
+            margin: 12px 16px;
+            padding: 14px;
             border-radius: var(--radius-md);
-            background: var(--bg-elevated);
+            background: var(--bg-raised);
             border: 1px solid var(--border-subtle);
         }
 
@@ -192,275 +237,421 @@ def load_css():
             font-size: 0.6rem;
             letter-spacing: 0.16em;
             text-transform: uppercase;
-            color: var(--text-muted);
-            margin-bottom: 10px;
+            color: var(--text-faint);
+            margin-bottom: 12px;
         }
 
         .dg-registry-stats {
             display: flex;
-            gap: 20px;
+            gap: 24px;
         }
 
         .dg-registry-stat-val {
             font-family: var(--font-display);
-            font-weight: 700;
-            font-size: 1.4rem;
+            font-size: 1.45rem;
             color: var(--text-primary);
             line-height: 1;
         }
 
         .dg-registry-stat-key {
             font-family: var(--font-mono);
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            margin-top: 3px;
+            font-size: 0.64rem;
+            color: var(--text-faint);
+            margin-top: 5px;
         }
 
-        /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-           MAIN CONTENT
-        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        .main .block-container {
-            padding: 40px 44px 60px !important;
-            max-width: 1280px !important;
-        }
-
-        /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-           PAGE HEADER
-        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .dg-page-header {
-            margin-bottom: 36px;
-            padding-bottom: 24px;
-            border-bottom: 1px solid var(--border-subtle);
+            position: relative;
+            padding-left: 22px;
+            margin-bottom: 38px;
+            max-width: 880px;
+        }
+
+        .dg-page-header::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 4px;
+            bottom: 6px;
+            width: 1px;
+            background: rgba(200, 169, 110, 0.6);
         }
 
         .dg-page-eyebrow {
-            font-family: var(--font-mono);
-            font-size: 0.65rem;
-            letter-spacing: 0.2em;
+            font-size: 0.64rem;
+            letter-spacing: 0.18em;
             text-transform: uppercase;
             color: var(--accent);
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
 
         .dg-page-title {
             font-family: var(--font-display);
-            font-size: 1.75rem;
-            font-weight: 700;
+            font-size: clamp(2rem, 4vw, 3.45rem);
             color: var(--text-primary);
-            letter-spacing: -0.025em;
-            line-height: 1.2;
-            margin: 0;
+            letter-spacing: -0.035em;
+            line-height: 1.04;
         }
 
         .dg-page-desc {
-            font-family: var(--font-mono);
-            font-size: 0.78rem;
             color: var(--text-muted);
-            margin-top: 6px;
-            letter-spacing: 0.02em;
+            margin-top: 12px;
+            font-size: 1rem;
+            line-height: 1.65;
+            max-width: 720px;
         }
 
-        /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-           SECTION LABELS
-        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .dg-section-label {
-            font-family: var(--font-mono);
-            font-size: 0.62rem;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            margin-bottom: 12px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 14px;
+            color: var(--text-faint);
+            font-size: 0.64rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            margin: 28px 0 14px;
         }
 
         .dg-section-label::after {
             content: '';
-            flex: 1;
             height: 1px;
+            flex: 1;
             background: var(--border-subtle);
         }
 
-        /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-           METRIC CARDS
-        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        .dg-metric {
+        .dg-card,
+        .dg-metric,
+        .dg-step,
+        .dg-row,
+        div[data-testid="stForm"],
+        div[data-testid="stExpander"] {
             background: var(--bg-raised);
             border: 1px solid var(--border-subtle);
             border-radius: var(--radius-lg);
-            padding: 22px 24px;
-            position: relative;
-            overflow: hidden;
-            transition: border-color 0.2s, box-shadow 0.2s;
         }
 
-        .dg-metric::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 2px;
-            background: var(--accent);
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-
-        .dg-metric:hover {
-            border-color: var(--border-accent);
-            box-shadow: var(--shadow-md);
-        }
-
-        .dg-metric:hover::before { opacity: 1; }
-
-        .dg-metric.error::before   { background: var(--danger);  opacity: 0.6; }
-        .dg-metric.warning::before { background: var(--warning); opacity: 0.6; }
-        .dg-metric.success::before { background: var(--success); opacity: 0.6; }
-
-        .dg-metric-label {
-            font-family: var(--font-mono);
-            font-size: 0.62rem;
-            letter-spacing: 0.16em;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            margin-bottom: 10px;
-        }
-
-        .dg-metric-value {
-            font-family: var(--font-display);
-            font-weight: 700;
-            font-size: 2rem;
-            color: var(--text-primary);
-            letter-spacing: -0.02em;
-            line-height: 1;
-        }
-
-        .dg-metric.error   .dg-metric-value { color: var(--danger);  }
-        .dg-metric.warning .dg-metric-value { color: var(--warning); }
-        .dg-metric.success .dg-metric-value { color: var(--success); }
-
-        .dg-metric-sub {
-            font-family: var(--font-mono);
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            margin-top: 6px;
-        }
-
-        /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-           CARDS (generic containers)
-        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
         .dg-card {
-            background: var(--bg-raised);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-lg);
             padding: 24px;
             margin-bottom: 16px;
         }
 
-        .dg-card-title {
-            font-family: var(--font-display);
-            font-size: 0.82rem;
-            font-weight: 600;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: var(--text-secondary);
-            margin-bottom: 16px;
+        .dg-card.compact {
+            padding: 16px 18px;
         }
 
-        /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-           BADGES
-        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        .dg-card-title {
+            font-size: 0.66rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--text-faint);
+            margin-bottom: 12px;
+        }
+
+        .dg-card-copy {
+            color: var(--text-muted);
+            line-height: 1.68;
+            font-size: 0.96rem;
+        }
+
+        .dg-metric {
+            padding: 22px 24px;
+            min-height: 122px;
+            transition: background var(--transition), border-color var(--transition);
+        }
+
+        .dg-metric:hover,
+        .dg-card:hover,
+        .dg-row:hover {
+            background: var(--bg-elevated);
+            border-color: var(--border-default);
+        }
+
+        .dg-metric.hero {
+            border-left: 1px solid rgba(200, 169, 110, 0.65);
+            min-height: 176px;
+        }
+
+        .dg-metric-label {
+            color: var(--text-faint);
+            font-size: 0.64rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .dg-metric-value {
+            font-family: var(--font-display);
+            color: var(--text-primary);
+            font-size: 2.15rem;
+            line-height: 1;
+            letter-spacing: -0.035em;
+        }
+
+        .dg-metric.hero .dg-metric-value {
+            color: var(--accent);
+            font-size: clamp(3rem, 7vw, 5.2rem);
+        }
+
+        .dg-metric.success { border-left: 1px solid var(--success); }
+        .dg-metric.warning { border-left: 1px solid var(--warning); }
+        .dg-metric.error { border-left: 1px solid var(--danger); }
+        .dg-metric.critical { border-left: 1px solid var(--critical); }
+
+        .dg-metric-sub {
+            color: var(--text-faint);
+            font-size: 0.7rem;
+            margin-top: 12px;
+        }
+
+        .dg-row {
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            border-left-width: 2px;
+        }
+
+        .dg-row.state-pass { border-left-color: var(--success); }
+        .dg-row.state-warn { border-left-color: var(--warning); }
+        .dg-row.state-fail { border-left-color: var(--danger); }
+        .dg-row.state-critical { border-left-color: var(--critical); }
+        .dg-row.state-debug { border-left-color: var(--debug); }
+        .dg-row.state-neutral { border-left-color: var(--border-default); }
+
+        .dg-row-title {
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 0.84rem;
+        }
+
+        .dg-row-meta {
+            color: var(--text-faint);
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            margin-top: 6px;
+        }
+
         .dg-badge {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
             padding: 3px 9px;
             border-radius: var(--radius-sm);
-            font-family: var(--font-mono);
+            border: 1px solid var(--border-default);
+            color: var(--text-muted);
+            background: var(--bg-elevated);
             font-size: 0.68rem;
-            font-weight: 500;
-            letter-spacing: 0.06em;
-            border: 1px solid;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
         }
 
-        .dg-badge.error   { background: var(--danger-dim);  border-color: rgba(224,64,96,0.3);  color: var(--danger);  }
-        .dg-badge.success { background: var(--success-dim); border-color: rgba(46,204,113,0.3); color: var(--success); }
-        .dg-badge.warning { background: var(--warning-dim); border-color: rgba(240,165,0,0.3);  color: var(--warning); }
-        .dg-badge.info    { background: var(--info-dim);    border-color: rgba(56,189,248,0.3);  color: var(--info);    }
-        .dg-badge.neutral { background: var(--bg-elevated); border-color: var(--border-default); color: var(--text-secondary); }
+        .dg-badge.success { color: var(--success); border-color: rgba(143,169,130,0.42); background: var(--success-soft); }
+        .dg-badge.warning { color: var(--warning); border-color: rgba(195,154,87,0.44); background: var(--warning-soft); }
+        .dg-badge.error { color: var(--danger); border-color: rgba(197,121,98,0.46); background: var(--danger-soft); }
+        .dg-badge.critical { color: var(--critical); border-color: rgba(208,138,127,0.56); background: var(--critical-soft); }
+        .dg-badge.info { color: var(--text-secondary); border-color: var(--border-default); background: var(--bg-elevated); }
+        .dg-badge.neutral { color: var(--text-muted); border-color: var(--border-default); background: var(--bg-elevated); }
+        .dg-badge.debug { color: var(--debug); border-color: rgba(141,136,127,0.38); background: var(--debug-soft); }
 
-           BOOT LOADER
-        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        .dg-step {
+            padding: 18px 20px;
+            min-height: 118px;
+            transition: border-color var(--transition), background var(--transition);
+        }
+
+        .dg-step.active {
+            border-left: 1px solid rgba(200, 169, 110, 0.65);
+            background: var(--bg-elevated);
+        }
+
+        .dg-step.done {
+            border-left: 1px solid var(--success);
+        }
+
+        .dg-step-index {
+            color: var(--accent);
+            font-size: 0.7rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .dg-step-title {
+            color: var(--text-primary);
+            font-size: 1.02rem;
+        }
+
+        .dg-step-meta {
+            color: var(--text-faint);
+            font-size: 0.68rem;
+            margin-top: 8px;
+        }
+
+        .dg-ledger {
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+        }
+
+        .dg-empty {
+            padding: 34px;
+            text-align: center;
+            color: var(--text-muted);
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-raised);
+            border-radius: var(--radius-lg);
+            font-family: var(--font-mono);
+            line-height: 1.6;
+        }
+
         .dg-loader-wrap {
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 60vh;
-            gap: 24px;
+            min-height: 62vh;
+        }
+
+        .dg-loader-card {
+            width: min(560px, 92vw);
+            padding: 36px;
+            background: var(--bg-raised);
+            border: 1px solid var(--border-subtle);
+            border-left: 1px solid rgba(200, 169, 110, 0.6);
+            border-radius: var(--radius-lg);
         }
 
         .dg-loader-title {
             font-family: var(--font-display);
-            font-size: 1.5rem;
-            font-weight: 700;
+            font-size: 2rem;
             color: var(--text-primary);
-            letter-spacing: -0.02em;
+            margin-bottom: 12px;
         }
 
-        .dg-loader-title span { color: var(--accent); }
-
-        .dg-spinner {
-            width: 44px;
-            height: 44px;
-            border: 3px solid var(--border-default);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.9s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        .dg-loader-title span {
+            color: var(--accent);
         }
 
         .dg-loader-step {
             font-family: var(--font-mono);
             font-size: 0.75rem;
             color: var(--text-muted);
-            letter-spacing: 0.06em;
+            letter-spacing: 0.04em;
+            margin: 12px 0 0;
         }
 
-        /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-           ACTION BAR (pill group)
-        â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        .dg-pill-bar {
-            display: flex;
-            gap: 4px;
+        .stButton > button,
+        .stDownloadButton > button {
+            font-family: var(--font-mono) !important;
+            border-radius: var(--radius-sm) !important;
+            border: 1px solid var(--border-default) !important;
+            background: var(--bg-elevated) !important;
+            color: var(--text-secondary) !important;
+            transition: background var(--transition), border-color var(--transition), color var(--transition) !important;
+            box-shadow: none !important;
+        }
+
+        .stButton > button:hover,
+        .stDownloadButton > button:hover,
+        .stButton > button:focus-visible,
+        .stDownloadButton > button:focus-visible {
+            background: var(--bg-hover) !important;
+            border-color: var(--accent) !important;
+            color: var(--text-primary) !important;
+        }
+
+        .stButton > button[kind="primary"] {
+            background: var(--bg-elevated) !important;
+            color: var(--accent) !important;
+            border-color: rgba(200, 169, 110, 0.58) !important;
+        }
+
+        input,
+        textarea,
+        select,
+        [data-baseweb="select"] > div,
+        [data-baseweb="input"] > div,
+        [data-baseweb="textarea"] {
+            background: var(--bg-elevated) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-default) !important;
+            font-family: var(--font-mono) !important;
+        }
+
+        label,
+        .stMarkdown,
+        .stCaption,
+        p,
+        li {
+            color: var(--text-secondary);
+        }
+
+        h1, h2, h3, h4 {
+            font-family: var(--font-display) !important;
+            color: var(--text-primary) !important;
+        }
+
+        code,
+        pre,
+        .stCode,
+        [data-testid="stDataFrame"],
+        [data-testid="stTable"] {
+            font-family: var(--font-mono) !important;
+        }
+
+        [data-testid="stDataFrame"],
+        [data-testid="stTable"] {
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        div[data-testid="stMetric"] {
             background: var(--bg-raised);
             border: 1px solid var(--border-subtle);
             border-radius: var(--radius-lg);
-            padding: 4px;
-            width: fit-content;
-            margin-bottom: 24px;
+            padding: 16px 18px;
         }
 
-        .dg-pill {
-            padding: 6px 16px;
-            border-radius: var(--radius-md);
-            font-size: 0.78rem;
-            font-weight: 500;
-            font-family: var(--font-body);
-            cursor: pointer;
-            color: var(--text-muted);
-            border: none;
-            background: transparent;
-            transition: all 0.15s;
+        div[data-testid="stMetric"] label,
+        div[data-testid="stMetric"] [data-testid="stMetricLabel"] {
+            font-family: var(--font-mono);
+            color: var(--text-faint) !important;
         }
 
-        .dg-pill.active {
-            background: var(--bg-overlay);
+        div[data-testid="stMetricValue"] {
+            font-family: var(--font-display);
             color: var(--text-primary);
         }
 
+        div[data-testid="stTabs"] button {
+            font-family: var(--font-mono) !important;
+            color: var(--text-muted) !important;
+        }
+
+        div[data-testid="stTabs"] button[aria-selected="true"] {
+            color: var(--accent) !important;
+            border-bottom-color: var(--accent) !important;
+        }
+
+        div[data-testid="stAlert"] {
+            background: var(--bg-raised);
+            border: 1px solid var(--border-default);
+            color: var(--text-secondary);
+        }
+
+        div[data-testid="stProgress"] > div > div > div {
+            background: var(--accent) !important;
+        }
+
+        *:focus-visible {
+            outline: 1px solid rgba(200, 169, 110, 0.8) !important;
+            outline-offset: 2px !important;
+        }
+
+        @media (max-width: 900px) {
+            .main .block-container {
+                padding: 30px 22px 54px !important;
+            }
+            .dg-page-title {
+                font-size: 2.2rem;
+            }
+        }
         </style>
         """,
         unsafe_allow_html=True,

@@ -135,8 +135,17 @@ def render_summary_cards(summary: dict):
     ]
     for column, (label, value, variant, subtext) in zip(columns, cards):
         with column:
-            st.metric(label, value)
-            st.caption(subtext)
+            variant_class = f" {variant}" if variant else ""
+            st.markdown(
+                f"""
+                <div class="dg-metric{variant_class}" style="min-height:112px;padding:16px;">
+                    <div class="dg-metric-label">{label}</div>
+                    <div class="dg-metric-value" style="font-size:1.45rem;">{value}</div>
+                    <div class="dg-metric-sub">{subtext}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
 
 def render_summary_fragment():
@@ -148,10 +157,10 @@ def render_summary_fragment():
     if summary["critical_count"] > 0:
         st.markdown(
             """
-            <div class="dg-card" style="border-color:rgba(224,64,96,0.45);background:rgba(224,64,96,0.08);margin-bottom:16px;">
-                <div class="dg-card-title" style="color:#ff9db0;margin-bottom:8px;">Critical activity detected</div>
+            <div class="dg-row state-critical" style="margin-bottom:16px;">
+                <div class="dg-card-title">Critical activity detected</div>
                 <div style="color:var(--text-primary);font-size:0.88rem;line-height:1.55;">
-                    Critical events are present in the current filtered view. Use the severity quick filters or select an event to inspect payloads and related validation history.
+                    Critical events are present in the current filtered view. Select an event to inspect payloads and related validation history.
                 </div>
             </div>
             """,
@@ -226,8 +235,8 @@ st.markdown(
     """
     <div class="dg-page-header">
         <div class="dg-page-eyebrow">Operational Observability</div>
-        <div class="dg-page-title">Validation Logs</div>
-        <div class="dg-page-desc">Monitor live validation activity, isolate failures quickly, and drill into structured event payloads without losing operational context.</div>
+        <div class="dg-page-title">A live ledger for validation events.</div>
+        <div class="dg-page-desc">Monitor structured validation logs, isolate failures by severity or context, and drill into the event payload without losing the current filter.</div>
     </div>
     """,
     unsafe_allow_html=True,

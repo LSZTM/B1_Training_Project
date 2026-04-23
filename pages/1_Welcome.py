@@ -1,151 +1,149 @@
 from components.sidebar import render_sidebar
+
 render_sidebar()
 
 import streamlit as st
+
+from services.validation_service import ValidationService
 from utils.styles import load_css
+
 
 load_css()
 
-# ── Connection guard ──────────────────────────────────────────────────────────
 if "connected" not in st.session_state:
     st.session_state.connected = False
 if not st.session_state.get("boot_complete", False):
     st.stop()
 
-# ── Page header ───────────────────────────────────────────────────────────────
+db_name = st.session_state.get("db_selected_database", "Current database")
+server_name = st.session_state.get("db_selected_server", "SQL Server")
+
 st.markdown(
     """
     <div class="dg-page-header">
-        <div class="dg-page-eyebrow">Onboarding</div>
-        <div class="dg-page-title">Welcome to DataGuard</div>
-        <div class="dg-page-desc">The modern standard for enterprise data validation and quality operations.</div>
+        <div class="dg-page-eyebrow">Welcome</div>
+        <div class="dg-page-title">A quieter way to validate SQL Server data.</div>
+        <div class="dg-page-desc">DataGuard runs rule-based checks, records failures, and keeps validation activity traceable from run to log.</div>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-# ── Hero Section ──────────────────────────────────────────────────────────────
-st.markdown(
-    """
-    <div class="dg-card" style="padding: 40px; background: linear-gradient(135deg, var(--bg-raised) 0%, var(--bg-elevated) 100%); border-color: var(--accent);">
-        <h2 style="font-family: var(--font-display); color: var(--text-primary); margin-bottom: 16px;">Secure, Validate, and Monitor.</h2>
-        <p style="font-size: 1.1rem; color: var(--text-secondary); line-height: 1.6; max-width: 800px;">
-            DataGuard is a comprehensive validation platform designed to ensure the integrity of your SQL datasets. 
-            Automate quality checks, detect anomalies in real-time, and maintain a high-fidelity data ecosystem 
-            with professional-grade tooling.
-        </p>
-        <div style="margin-top: 32px; display: flex; gap: 16px;">
-            <div class="dg-badge success" style="padding: 8px 16px; font-size: 0.8rem;">Production Ready</div>
-            <div class="dg-badge info" style="padding: 8px 16px; font-size: 0.8rem;">SQL Server Native</div>
-            <div class="dg-badge neutral" style="padding: 8px 16px; font-size: 0.8rem;">Real-time Logs</div>
+metrics = ValidationService.get_metrics()
+rules = metrics.get("rules", 0)
+errors = metrics.get("errors", 0)
+records = metrics.get("records_scanned", 0)
+
+hero_col, side_col = st.columns([1.45, 1], gap="large")
+
+with hero_col:
+    st.markdown(
+        f"""
+        <div class="dg-metric hero">
+            <div class="dg-metric-label">Current validation room</div>
+            <div class="dg-metric-value">{db_name}</div>
+            <div class="dg-metric-sub">{server_name}</div>
         </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+        """,
+        unsafe_allow_html=True,
+    )
 
-st.markdown("<br>", unsafe_allow_html=True)
+with side_col:
+    st.markdown(
+        """
+        <div class="dg-card">
+            <div class="dg-card-title">Next step</div>
+            <div class="dg-card-copy">Choose a scope, confirm the ruleset, then let DataGuard write the evidence into run history and operational logs.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.button("Begin validations", type="primary", use_container_width=True):
+        st.switch_page("pages/3_Execute.py")
 
-# ── Steps / Workflow ──────────────────────────────────────────────────────────
-st.markdown('<div class="dg-section-label">Core Workflow</div>', unsafe_allow_html=True)
+st.markdown('<div class="dg-section-label">At rest</div>', unsafe_allow_html=True)
 
-c1, c2, c3, c4 = st.columns(4, gap="medium")
-
+c1, c2, c3 = st.columns(3, gap="medium")
 with c1:
     st.markdown(
-        """
-        <div class="dg-card" style="height: 100%; text-align: center; padding: 30px 20px;">
-            <div style="font-size: 2.5rem; margin-bottom: 20px; color: var(--accent);">01</div>
-            <div class="dg-card-title">Connect & Discover</div>
-            <p style="font-size: 0.82rem; color: var(--text-muted);">
-                Link your SQL Server instance and let DataGuard profile your schema and detect data types.
-            </p>
+        f"""
+        <div class="dg-metric">
+            <div class="dg-metric-label">Active rule codes</div>
+            <div class="dg-metric-value">{rules:,}</div>
+            <div class="dg-metric-sub">available to the engine</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
 with c2:
     st.markdown(
-        """
-        <div class="dg-card" style="height: 100%; text-align: center; padding: 30px 20px;">
-            <div style="font-size: 2.5rem; margin-bottom: 20px; color: var(--accent);">02</div>
-            <div class="dg-card-title">Define Rules</div>
-            <p style="font-size: 0.82rem; color: var(--text-muted);">
-                Use the Rule Manager to set constraints, from simple range checks to complex business logic.
-            </p>
+        f"""
+        <div class="dg-metric">
+            <div class="dg-metric-label">Records scanned</div>
+            <div class="dg-metric-value">{records:,}</div>
+            <div class="dg-metric-sub">from recent validation history</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
 with c3:
+    state = "state-pass" if errors == 0 else "state-fail"
     st.markdown(
-        """
-        <div class="dg-card" style="height: 100%; text-align: center; padding: 30px 20px;">
-            <div style="font-size: 2.5rem; margin-bottom: 20px; color: var(--accent);">03</div>
-            <div class="dg-card-title">Execute Validation</div>
-            <p style="font-size: 0.82rem; color: var(--text-muted);">
-                Run validations on-demand or schedule them. DataGuard handles the heavy lifting directly in SQL.
-            </p>
+        f"""
+        <div class="dg-row {state}" style="min-height:122px;">
+            <div class="dg-card-title">Known failures</div>
+            <div class="dg-metric-value" style="font-size:2.15rem;">{errors:,}</div>
+            <div class="dg-row-meta">Open Results & History to inspect rule failures per table.</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-with c4:
+st.markdown('<div class="dg-section-label">Path</div>', unsafe_allow_html=True)
+
+p1, p2, p3 = st.columns(3, gap="medium")
+for col, number, title, copy in [
+    (p1, "01", "Run", "Select tables and rulesets with only the needed options."),
+    (p2, "02", "Inspect", "Read validation runs, grouped failures, and quality trends."),
+    (p3, "03", "Trace", "Use structured logs to follow a validation journey end to end."),
+]:
+    with col:
+        st.markdown(
+            f"""
+            <div class="dg-card">
+                <div class="dg-step-index">{number}</div>
+                <div class="dg-step-title">{title}</div>
+                <div class="dg-card-copy" style="margin-top:10px;">{copy}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+st.markdown('<div class="dg-section-label">Useful rooms</div>', unsafe_allow_html=True)
+
+a1, a2 = st.columns(2, gap="medium")
+with a1:
     st.markdown(
         """
-        <div class="dg-card" style="height: 100%; text-align: center; padding: 30px 20px;">
-            <div style="font-size: 2.5rem; margin-bottom: 20px; color: var(--accent);">04</div>
-            <div class="dg-card-title">Analyze Results</div>
-            <p style="font-size: 0.82rem; color: var(--text-muted);">
-                Drill into failures, export logs, and monitor trends through the executive dashboard.
-            </p>
+        <div class="dg-card compact">
+            <div class="dg-card-title">Health Dashboard</div>
+            <div class="dg-card-copy">A single view of validation health, coverage, failures, and trends.</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+    if st.button("View dashboard", use_container_width=True):
+        st.switch_page("pages/2_Dashboard.py")
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-# ── Call to Action ────────────────────────────────────────────────────────────
-st.markdown('<div class="dg-section-label">Get Started</div>', unsafe_allow_html=True)
-
-c1, c2 = st.columns(2, gap="medium")
-
-with c1:
-    with st.container(border=True):
-        st.markdown("### System Health")
-        st.write("View the high-level dashboard to see current error rates and active rule counts.")
-        if st.button("Go to Dashboard", type="primary", use_container_width=True):
-            st.switch_page("pages/2_Dashboard.py")
-
-with c2:
-    with st.container(border=True):
-        st.markdown("### Run a Validation")
-        st.write("Ready to check your data? Select your tables and run the engine now.")
-        if st.button("Execute Now", use_container_width=True):
-            st.switch_page("pages/3_Execute.py")
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# ── Help / Documentation Placeholder ──────────────────────────────────────────
-with st.expander("How does the validation engine work?", expanded=False):
+with a2:
     st.markdown(
         """
-        The DataGuard engine translates your high-level rules into optimized T-SQL queries. 
-        These queries run directly on your database server to minimize network overhead. 
-        Failures are recorded in the `error_log` table with specific identifiers, allowing 
-        for precise remediation.
-        """
+        <div class="dg-card compact">
+            <div class="dg-card-title">Operational Logs</div>
+            <div class="dg-card-copy">A live ledger for validation events, severity filters, and structured drill-down.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-
-with st.expander("Who is this platform for?", expanded=False):
-    st.markdown(
-        """
-        - **Data Engineers**: For enforcing schema integrity during ETL.
-        - **Quality Analysts**: For identifying anomalies in business-critical datasets.
-        - **Product Managers**: For monitoring the health of the live production environment.
-        """
-    )
+    if st.button("Open logs", use_container_width=True):
+        st.switch_page("pages/6_Logs.py")
