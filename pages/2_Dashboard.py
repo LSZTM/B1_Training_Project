@@ -3,6 +3,7 @@ render_sidebar()
 
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from services.validation_service import ValidationService
 from utils.styles import load_css
 
@@ -47,6 +48,7 @@ errors     = metrics.get("errors", 0)
 rules      = metrics.get("rules", 0)
 minutes    = metrics.get("minutes_ago", 0)
 error_rate = min(100.0, errors / max(records, 1) * 100)
+integrity_score = 100.0 - error_rate
 
 health       = "Healthy"  if error_rate < 1 else "Warning"  if error_rate < 5 else "Critical"
 health_var   = "success"  if health == "Healthy" else "warning" if health == "Warning" else "error"
@@ -54,13 +56,21 @@ error_var    = "success"  if errors == 0 else "warning" if errors < 50 else "err
 rate_var     = "success"  if error_rate < 1 else "warning" if error_rate < 5 else "error"
 
 # ── System Health ─────────────────────────────────────────────────────────────
-st.markdown('<div class="dg-section-label">Real-time Pulse</div>', unsafe_allow_html=True)
+st.header("Real-time Pulse", divider=True)
 
 c1, c2, c3, c4 = st.columns(4, gap="medium")
-with c1: metric_card(str(rules),           "Loaded Rules",   "",         "active validation definitions")
-with c2: metric_card(f"{errors:,}",        "Total Issues",   error_var,  "across database")
-with c3: metric_card(f"{minutes}m ago",    "Last Heartbeat",       "",         "engine execution time")
-with c4: metric_card(f"{error_rate:.1f}%", "Integrity Score",     rate_var,   "pass/fail ratio")
+with c1: 
+    st.metric("Loaded Rules", str(rules))
+    st.caption("Active validation definitions")
+with c2: 
+    st.metric("Total Issues", f"{errors:,}")
+    st.caption("Across database")
+with c3: 
+    st.metric("Last Check", f"{minutes}m ago")
+    st.caption("Time since execution")
+with c4: 
+    st.metric("Integrity Score", f"{integrity_score:.1f}%")
+    st.caption("Overall data quality")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -73,8 +83,19 @@ with col_chart_l:
     st.markdown("#### Failures by Context")
     table_summary = ValidationService.get_error_summary_by_table()
     if not table_summary.empty:
-        # Use a more visually appealing bar chart
-        st.bar_chart(table_summary.set_index("table_name")["error_count"], color="#6366f1")
+        # Use an interactive Plotly bar chart
+        fig_bar = px.bar(
+            table_summary, 
+            x="table_name", 
+            y="error_count",
+            color_discrete_sequence=["#6366f1"],
+            labels={"table_name": "Context", "error_count": "Failures"}
+        )
+        fig_bar.update_layout(
+            margin=dict(l=0, r=0, t=20, b=0),
+            xaxis_title=None,
+        )
+        st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
         st.caption("Distribution of detected errors across different tables.")
     else:
         st.markdown(
@@ -90,7 +111,19 @@ with col_chart_r:
     st.markdown("#### Quality Over Time")
     trend_df = ValidationService.get_error_trend(days=14)
     if not trend_df.empty:
-        st.area_chart(trend_df.set_index("run_timestamp")["error_rate"], color="#06b6d4")
+        # Use an interactive Plotly area chart
+        fig_area = px.area(
+            trend_df,
+            x="run_timestamp",
+            y="error_rate",
+            color_discrete_sequence=["#06b6d4"],
+            labels={"run_timestamp": "Time", "error_rate": "Error Rate %"}
+        )
+        fig_area.update_layout(
+            margin=dict(l=0, r=0, t=20, b=0),
+            xaxis_title=None,
+        )
+        st.plotly_chart(fig_area, use_container_width=True, config={"displayModeBar": False})
         st.caption("Error rate progression based on latest batch runs.")
     else:
         st.markdown(
@@ -126,7 +159,7 @@ else:
     st.markdown(
         """
         <div class="dg-badge success" style="padding: 12px 20px;">
-            ✓ System-wide pass. No critical failures detected in recent scans.
+            System-wide pass. No critical failures detected in recent scans.
         </div>
         """,
         unsafe_allow_html=True

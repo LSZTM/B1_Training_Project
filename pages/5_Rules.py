@@ -304,7 +304,7 @@ with st.expander("+ Add New Rule", expanded=False):
                 )
 
                 if success:
-                    st.success(f"✅ Rule added · {new_context}.{new_column} → {new_rule}")
+                    st.success(f"Rule added · {new_context}.{new_column} → {new_rule}")
                     st.rerun()
                 else:
                     st.error("Failed to save rule - database error occurred")

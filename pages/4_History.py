@@ -3,6 +3,7 @@ render_sidebar()
 
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from services.validation_service import ValidationService
 from utils.styles import load_css
 
@@ -27,7 +28,7 @@ st.markdown(
 )
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_runs, tab_explorer, tab_trends = st.tabs(["🕒 Run History", "🔍 Error Explorer", "📈 Quality Trends"])
+tab_runs, tab_explorer, tab_trends = st.tabs(["Run History", "Error Explorer", "Quality Trends"])
 
 # ── TAB 1: Run History ────────────────────────────────────────────────────────
 with tab_runs:
@@ -106,12 +107,12 @@ with tab_explorer:
         st.dataframe(errors, use_container_width=True, hide_index=True)
         
         csv = errors.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download Filtered Results (CSV)", data=csv, file_name="validation_errors.csv", mime="text/csv")
+        st.download_button("Download Filtered Results (CSV)", data=csv, file_name="validation_errors.csv", mime="text/csv")
     else:
         st.markdown(
             """
             <div class="dg-card" style="text-align: center; padding: 40px;">
-                <h3 style="color: var(--success);">✓ No errors found</h3>
+                <h3 style="color: var(--success);">No errors found</h3>
                 <p style="color: var(--text-muted);">Data is pristine for the current selection.</p>
             </div>
             """,
@@ -128,11 +129,28 @@ with tab_trends:
         trend_df["run_timestamp"] = pd.to_datetime(trend_df["run_timestamp"])
         
         st.markdown("#### Global Error Rate Trend")
-        st.line_chart(trend_df.set_index("run_timestamp")["error_rate"], color="#6366f1")
+        fig_line = px.line(
+            trend_df,
+            x="run_timestamp",
+            y="error_rate",
+            color_discrete_sequence=["#6366f1"],
+            labels={"run_timestamp": "Time", "error_rate": "Error Rate %"},
+            markers=True
+        )
+        fig_line.update_layout(margin=dict(l=0, r=0, t=10, b=0), xaxis_title=None)
+        st.plotly_chart(fig_line, use_container_width=True, config={"displayModeBar": False})
         
         st.markdown("#### Table Breakdown")
         table_impact = ValidationService.get_error_summary_by_table()
         if not table_impact.empty:
-            st.bar_chart(table_impact.set_index("table_name")["error_count"], color="#06b6d4")
+            fig_bar = px.bar(
+                table_impact,
+                x="table_name",
+                y="error_count",
+                color_discrete_sequence=["#06b6d4"],
+                labels={"table_name": "Context", "error_count": "Failures"}
+            )
+            fig_bar.update_layout(margin=dict(l=0, r=0, t=10, b=0), xaxis_title=None)
+            st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
     else:
         st.info("Insufficient data to generate trends. Run more validations to see patterns.")

@@ -84,7 +84,7 @@ def render_sidebar():
 
         st.markdown('<div class="dg-nav-label">System</div>', unsafe_allow_html=True)
 
-        if st.button("🔄 Change Database", use_container_width=True):
+        if st.button("Change Database", use_container_width=True):
             st.session_state.db_setup_mode = True
             st.session_state.redirected = False
             st.switch_page("main.py")

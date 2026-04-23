@@ -101,7 +101,7 @@ if st.session_state.execute_step == 1:
     
     c1, c2, c3 = st.columns([1, 1, 1])
     with c2:
-        if st.button("Continue to Configuration  →", type="primary", use_container_width=True, disabled=not selected_list):
+        if st.button("Continue to Configuration", type="primary", use_container_width=True, disabled=not selected_list):
             next_step()
             st.rerun()
     if not selected_list:
@@ -131,11 +131,11 @@ elif st.session_state.execute_step == 2:
     
     c1, c2, c3 = st.columns([1, 1, 1])
     with c1:
-        if st.button("←  Back to Selection", use_container_width=True):
+        if st.button("Back to Selection", use_container_width=True):
             prev_step()
             st.rerun()
     with c3:
-        if st.button("Proceed to Run  →", type="primary", use_container_width=True):
+        if st.button("Proceed to Run", type="primary", use_container_width=True):
             next_step()
             st.rerun()
 
@@ -165,7 +165,7 @@ elif st.session_state.execute_step == 3:
         """
         st.markdown(summary_html, unsafe_allow_html=True)
         
-        if st.button("▶  Run All Validations Now", type="primary", use_container_width=True):
+        if st.button("Run All Validations Now", type="primary", use_container_width=True):
             with st.spinner("Initializing engine and executing rules..."):
                 # Simulation of per-table run if needed, but for now we follow existing service
                 # In a real fix, we'd pass selected_tables to run_all_validations
@@ -186,7 +186,7 @@ elif st.session_state.execute_step == 3:
             freq = st.selectbox("Frequency", ["Every Hour", "Daily at midnight", "Weekly (Sundays)", "Custom CRON"])
             notif = st.text_input("Alert Email", placeholder="data-ops@company.com")
             
-            if st.button("⏰  Save Schedule", use_container_width=True):
+            if st.button("Save Schedule", use_container_width=True):
                 st.info("Schedule recorded. DataGuard daemon will pick up this task.")
                 # Here we would normally save to a schedules table.
                 # execute_sql("INSERT INTO schedules (tables, freq, ...) ...")
@@ -195,7 +195,7 @@ elif st.session_state.execute_step == 3:
                 st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("←  Recap Configuration", use_container_width=True):
+    if st.button("Recap Configuration", use_container_width=True):
         prev_step()
         st.rerun()
 

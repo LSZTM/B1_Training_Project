@@ -35,9 +35,9 @@ st.markdown(
             with professional-grade tooling.
         </p>
         <div style="margin-top: 32px; display: flex; gap: 16px;">
-            <div class="dg-badge success" style="padding: 8px 16px; font-size: 0.8rem;">✓ Production Ready</div>
-            <div class="dg-badge info" style="padding: 8px 16px; font-size: 0.8rem;">ℹ SQL Server Native</div>
-            <div class="dg-badge neutral" style="padding: 8px 16px; font-size: 0.8rem;">⚡ Real-time Logs</div>
+            <div class="dg-badge success" style="padding: 8px 16px; font-size: 0.8rem;">Production Ready</div>
+            <div class="dg-badge info" style="padding: 8px 16px; font-size: 0.8rem;">SQL Server Native</div>
+            <div class="dg-badge neutral" style="padding: 8px 16px; font-size: 0.8rem;">Real-time Logs</div>
         </div>
     </div>
     """,
@@ -116,14 +116,14 @@ c1, c2 = st.columns(2, gap="medium")
 
 with c1:
     with st.container(border=True):
-        st.markdown("### 📊 Check System Health")
+        st.markdown("### System Health")
         st.write("View the high-level dashboard to see current error rates and active rule counts.")
         if st.button("Go to Dashboard", type="primary", use_container_width=True):
             st.switch_page("pages/2_Dashboard.py")
 
 with c2:
     with st.container(border=True):
-        st.markdown("### ⚡ Run a Validation")
+        st.markdown("### Run a Validation")
         st.write("Ready to check your data? Select your tables and run the engine now.")
         if st.button("Execute Now", use_container_width=True):
             st.switch_page("pages/3_Execute.py")

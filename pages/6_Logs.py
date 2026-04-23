@@ -135,16 +135,8 @@ def render_summary_cards(summary: dict):
     ]
     for column, (label, value, variant, subtext) in zip(columns, cards):
         with column:
-            st.markdown(
-                f"""
-                <div class="dg-metric {variant}">
-                    <div class="dg-metric-label">{label}</div>
-                    <div class="dg-metric-value">{value}</div>
-                    <div class="dg-metric-sub">{subtext}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            st.metric(label, value)
+            st.caption(subtext)
 
 
 def render_summary_fragment():
