@@ -176,6 +176,28 @@ class ValidationService:
         "no_cleartext_password": {"keywords": ["password", "pwd", "passwd", "secret"], "data_types": ["varchar", "nvarchar"], "detector": None, "params_fn": None, "base_conf": 0.88, "category": "security", "description": "Block cleartext password-like values."},
     }
 
+    DOMAIN_SIGNAL_MAP: dict[str, dict] = {
+        "email": {"aliases": ["email", "email_address", "e_mail", "mail"], "rules": [("IsEmail", 0.96), ("email_domain_whitelist", 0.78)]},
+        "phone": {"aliases": ["phone", "phone_number", "mobile", "mobile_number", "telephone", "tel"], "rules": [("is_phone_e164", 0.88), ("is_phone_us", 0.84)]},
+        "postal": {"aliases": ["zip", "zipcode", "zip_code", "postal", "postal_code", "postcode"], "rules": [("is_postal_code_us", 0.88), ("is_postal_code_uk", 0.84)]},
+        "ssn": {"aliases": ["ssn", "social_security", "social_security_number"], "rules": [("is_ssn", 0.94), ("no_pii_pattern", 0.86)]},
+        "uuid": {"aliases": ["uuid", "guid", "rowguid", "uniqueidentifier"], "rules": [("is_uuid", 0.94), ("is_unique", 0.86)]},
+        "url": {"aliases": ["url", "uri", "link", "website", "web_site"], "rules": [("is_url", 0.9), ("no_html_tags", 0.76)]},
+        "iban": {"aliases": ["iban", "bank_iban"], "rules": [("is_iban", 0.9), ("iban_checksum", 0.86)]},
+        "card": {"aliases": ["card", "card_number", "credit_card", "debit_card", "pan"], "rules": [("is_credit_card", 0.88), ("luhn_check", 0.86)]},
+        "currency": {"aliases": ["currency", "currency_code", "ccy"], "rules": [("is_currency_code", 0.88), ("exact_length", 0.78)]},
+        "country": {"aliases": ["country", "country_code", "nation"], "rules": [("is_country_code", 0.88), ("exact_length", 0.78)]},
+        "gender": {"aliases": ["gender", "sex", "gender_code"], "rules": [("gender_code", 0.92), ("is_in_list", 0.84)]},
+        "status": {"aliases": ["status", "state", "stage"], "rules": [("is_in_list", 0.88), ("case_consistency", 0.76)]},
+        "date": {"aliases": ["date", "created_at", "updated_at", "created_date", "updated_date"], "rules": [("IsDate", 0.86), ("date_not_in_future", 0.82)]},
+        "birth_date": {"aliases": ["dob", "birth_date", "date_of_birth"], "rules": [("IsDate", 0.9), ("date_min_bound", 0.88), ("date_not_in_future", 0.86)]},
+        "age": {"aliases": ["age"], "rules": [("age_range", 0.94), ("positive_only", 0.84)]},
+        "amount": {"aliases": ["amount", "price", "cost", "salary", "total", "subtotal"], "rules": [("is_decimal", 0.86), ("positive_only", 0.84)]},
+        "balance": {"aliases": ["balance", "account_balance"], "rules": [("is_decimal", 0.86), ("positive_balance", 0.88)]},
+        "percent": {"aliases": ["percent", "percentage", "pct", "rate", "ratio"], "rules": [("percentage_range", 0.88)]},
+        "name": {"aliases": ["name", "first_name", "last_name", "full_name"], "rules": [("trimmed", 0.84), ("no_whitespace_only", 0.8), ("HasLength", 0.8)]},
+    }
+
     @staticmethod
     def _is_safe_identifier(value):
         return bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value or ""))
@@ -183,6 +205,65 @@ class ValidationService:
     @staticmethod
     def _quote_identifier(value):
         return f"[{value}]"
+
+    @staticmethod
+    def _normalize_identifier(value: str) -> str:
+        text = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", str(value or ""))
+        text = re.sub(r"[^A-Za-z0-9]+", "_", text).strip("_").lower()
+        return re.sub(r"_+", "_", text)
+
+    @staticmethod
+    def _identifier_tokens(*values: str) -> set[str]:
+        tokens: set[str] = set()
+        for value in values:
+            normalized = ValidationService._normalize_identifier(value)
+            if not normalized:
+                continue
+            parts = [part for part in normalized.split("_") if part]
+            tokens.add(normalized)
+            tokens.update(parts)
+            for index in range(len(parts) - 1):
+                tokens.add("_".join(parts[index:index + 2]))
+            for index in range(len(parts) - 2):
+                tokens.add("_".join(parts[index:index + 3]))
+        return tokens
+
+    @staticmethod
+    def _rule_dtype_compatible(rule_code: str, data_type: str) -> bool:
+        if rule_code == "exact_length" and data_type in ValidationService.STRING_TYPES:
+            return True
+        dtypes = ValidationService.RULE_SIGNAL_MAP.get(rule_code, {}).get("data_types", ["*"])
+        return "*" in dtypes or data_type in dtypes
+
+    @staticmethod
+    def _rule_name_matches(rule_meta: dict, tokens: set[str], normalized_name: str) -> bool:
+        for keyword in rule_meta.get("keywords", []):
+            normalized_keyword = ValidationService._normalize_identifier(keyword)
+            if not normalized_keyword:
+                continue
+            if normalized_keyword in tokens:
+                return True
+            if "_" in normalized_keyword and normalized_keyword in normalized_name:
+                return True
+            if len(normalized_keyword) >= 4 and normalized_keyword in normalized_name:
+                return True
+        return False
+
+    @staticmethod
+    def _domain_matches(table: str, column: str) -> list[tuple[str, str]]:
+        tokens = ValidationService._identifier_tokens(table, column)
+        column_name = ValidationService._normalize_identifier(column)
+        matches = []
+        for domain, meta in ValidationService.DOMAIN_SIGNAL_MAP.items():
+            for alias in meta["aliases"]:
+                normalized_alias = ValidationService._normalize_identifier(alias)
+                if normalized_alias == column_name:
+                    matches.append((domain, "exact"))
+                    break
+                if normalized_alias in tokens:
+                    matches.append((domain, "token"))
+                    break
+        return matches
 
     @staticmethod
     def _upsert_suggestion(bucket, rule_code, rule_params, confidence, rationale, source, category):
@@ -868,8 +949,24 @@ class ValidationService:
             category = ValidationService.RULE_SIGNAL_MAP.get(code, {}).get("category", "integrity")
             ValidationService._upsert_suggestion(suggestions, code, params, confidence, rationale, source, category)
 
-        col_lower = column.lower()
+        normalized_name = ValidationService._normalize_identifier(column)
+        name_tokens = ValidationService._identifier_tokens(table, column)
         is_sparse_path = context["category"] in {"sparse", "free_text", "opaque"}
+
+        # PASS 1.5 domain aliases
+        for domain, match_kind in ValidationService._domain_matches(table, column):
+            for code, confidence in ValidationService.DOMAIN_SIGNAL_MAP[domain]["rules"]:
+                if not ValidationService._rule_dtype_compatible(code, data_type):
+                    continue
+                params = ""
+                if code == "gender_code":
+                    params = ValidationService._params_gender_codes(str_series)
+                elif code == "is_in_list":
+                    params = ValidationService._params_in_list(str_series)
+                elif code == "exact_length" and char_max:
+                    params = f"length={char_max}"
+                boost = 0.03 if match_kind == "exact" else 0.0
+                add(code, params, min(0.98, confidence + boost), f"{match_kind.title()} domain match for {domain}.", "domain")
 
         # PASS 2 type-driven rules
         if not is_sparse_path:
@@ -880,7 +977,7 @@ class ValidationService:
 
         # PASS 3 semantic keyword scan
         for code, meta in ValidationService.RULE_SIGNAL_MAP.items():
-            if any(k in col_lower for k in meta["keywords"]):
+            if ValidationService._rule_name_matches(meta, name_tokens, normalized_name):
                 add(code, "", max(meta["base_conf"], 0.78), f"Column name implies {code}.", "semantic")
 
         # PASS 4 statistical inference
@@ -897,10 +994,15 @@ class ValidationService:
         if data_type in ValidationService.STRING_TYPES:
             sstats = ValidationService._compute_string_length_stats(str_series)
             add("HasLength", f"max={char_max or int(max(sstats['p95'], 1))}", 0.86, "Length cap recommended.", "statistical")
-            if any(k in col_lower for k in ("code", "key", "id", "ref")) and sstats["p05"] > 0:
+            if any(k in name_tokens for k in ("code", "key", "id", "ref")) and sstats["p05"] > 0:
                 add("min_length", f"min={int(max(1, sstats['p05']))}", 0.78, "Identifier-like strings have minimum practical length.", "statistical")
             if data_type == "char" and char_max:
                 add("exact_length", f"length={char_max}", 0.9, "CHAR column is fixed width.", "statistical")
+            if not str_series.empty:
+                lengths = str_series.astype(str).str.len()
+                exact_lengths = lengths.dropna().unique().tolist()
+                if len(exact_lengths) == 1 and int(exact_lengths[0]) > 0 and int(exact_lengths[0]) <= 64:
+                    add("exact_length", f"length={int(exact_lengths[0])}", 0.91, "Sampled values share one exact length.", "statistical")
 
         # PASS 5 cardinality
         non_null_count = len(str_series)
@@ -908,7 +1010,7 @@ class ValidationService:
         unique_count = len(unique_values)
         if 0 < unique_count <= 15 and non_null_count > 0:
             add("is_in_list", f"allowed={','.join(map(str, sorted(unique_values)))}", 0.85, "Low cardinality detected.", "cardinality")
-        if non_null_count > 0 and (unique_count / non_null_count) >= 0.98 and any(k in col_lower for k in ["id", "key", "code", "ref", "uuid", "guid"]):
+        if non_null_count > 0 and (unique_count / non_null_count) >= 0.98 and any(k in name_tokens for k in ["id", "key", "code", "ref", "uuid", "guid"]):
             add("is_unique", "", 0.9, "Near-unique identifier pattern.", "cardinality")
 
         # PASS 6 pattern matching
@@ -928,7 +1030,7 @@ class ValidationService:
         # PASS 7 agreement scoring
         for code in list(suggestions.keys()):
             rule = ValidationService.RULE_SIGNAL_MAP.get(code, {})
-            name_implies = any(k in col_lower for k in rule.get("keywords", []))
+            name_implies = ValidationService._rule_name_matches(rule, name_tokens, normalized_name)
             detector = rule.get("detector")
             data_confirms = False
             if detector and non_null_count > 0:
@@ -947,7 +1049,7 @@ class ValidationService:
             "non_overlapping_range", "positive_balance", "gender_code", "no_cleartext_password", "masked_value",
         ]
         for code in business_by_name:
-            if any(k in col_lower for k in ValidationService.RULE_SIGNAL_MAP[code]["keywords"]):
+            if ValidationService._rule_name_matches(ValidationService.RULE_SIGNAL_MAP[code], name_tokens, normalized_name):
                 params = ValidationService._params_gender_codes(str_series) if code == "gender_code" else ""
                 add(code, params, ValidationService.RULE_SIGNAL_MAP[code]["base_conf"], "Keyword-triggered business/security rule.", "business")
 
