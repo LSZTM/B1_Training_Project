@@ -1,4 +1,4 @@
-# DataGuard — Validation Console
+# DataGuard - Validation Console
 
 ![Python](https://img.shields.io/badge/Python-85.5%25-3776AB?logo=python&logoColor=white)
 ![T-SQL](https://img.shields.io/badge/T--SQL-14.5%25-CC2927?logo=microsoftsqlserver&logoColor=white)
@@ -7,21 +7,22 @@
 ![Status](https://img.shields.io/badge/status-active--development-yellow)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-A full-stack data quality and validation framework for SQL Server tables. DataGuard combines a Python `ValidationService` orchestration layer, T-SQL scalar functions and a dynamic dispatcher stored procedure, and a Streamlit web console — giving teams a single interface to define, run, and monitor column-level validation rules.
+DataGuard is a SQL Server data validation console for finding broken data before it becomes business truth. It combines a Streamlit operations UI, a Python service layer, T-SQL validation functions and procedures, structured validation logs, and run history tables so teams can define rules, execute checks, inspect failures, and trace validation activity from run to log.
 
 ---
 
 ## Features
 
-- **Animated boot screen** with step-by-step startup sequence and live DB handshake; falls back to a retry wall on connection failure.
-- **Dynamic SQL dispatcher** (`vp_validate_column`) routes each rule to the correct scalar validation function (`dbo.vf_*`) at runtime.
-- **Per-rule result tracking** stored in `validation_rule_results` — every execution is persisted with pass/fail status and timestamp.
-- **Error rate trend panel** surfaces historical error rates per column/rule over time.
-- **Unified DB connection layer** (`utils.db`) with auto-discovery of available ODBC drivers via `pyodbc`.
-- **Error code alignment** between `error_code_master` and `error_log` to prevent silent reporting corruption.
-- **Multi-page Streamlit UI** (`pages/`) with a shared sidebar component and custom CSS design system (`utils/styles.py`).
-- **Structured validation logging** — all failures captured to `validation.log` with ODBC error codes (e.g. `42S22`).
-- **Component/service separation** — UI components, service layer, SQL, utilities, and tests live in clearly separated directories.
+- **Japandi Dark Streamlit console** with a restrained operational UI, shared design system, focused navigation, and keyboard-visible focus states.
+- **Six-page validation workflow** covering Welcome, Health Dashboard, Run Validations, Results & History, Rule Manager, and Operational Logs.
+- **Three-step validation wizard** for selecting table scope, choosing rule execution posture, and confirming a validation run.
+- **Dynamic SQL validation execution** through SQL Server procedures and `dbo.vf_*` scalar validation functions.
+- **Structured validation logs** stored in `validation_logs` with severity, validation ID, correlation ID, status, payload JSON, exception details, and indexed filtering fields.
+- **Live operational log console** with severity filters, minimum severity mode, search, grouped display modes, event details, and copy/filter actions.
+- **Per-rule result tracking** in `validation_rule_results`, linked to validation run history for pass/fail rates and duration analysis.
+- **Rule Manager** for adding manual rules, accepting suggestions, and reviewing active rulesets against the connected database.
+- **SQL Server connection picker** with ODBC driver discovery, Windows authentication, SQL authentication, and database selection.
+- **Separated project layers** for pages, reusable components, services, SQL migrations/procedures/functions, utilities, tests, and local setup docs.
 
 ---
 
@@ -41,16 +42,16 @@ cd B1_Training_Project
 ### 1. Verify your SQL Server connection
 
 ```python
-from utils.db import test_connection, get_available_drivers
+from utils.db import get_available_drivers, test_connection
 
-# Check which ODBC drivers are installed
+# Check which SQL Server ODBC drivers are installed.
 drivers = get_available_drivers()
 print(drivers)
-# ['ODBC Driver 17 for SQL Server', 'ODBC Driver 18 for SQL Server']
+# ['{ODBC Driver 17 for SQL Server}', '{ODBC Driver 18 for SQL Server}']
 
 result = test_connection()
 print(result)
-# {'success': True, 'driver': 'ODBC Driver 17 for SQL Server'}
+# {'success': True, 'driver': '{ODBC Driver 17 for SQL Server}'}
 ```
 
 ### 2. Launch the Streamlit console
@@ -59,19 +60,21 @@ print(result)
 streamlit run main.py
 ```
 
-DataGuard boots, runs its DB handshake against `QUERY_PRACTICE`, and redirects to the Overview page. If the connection fails, a retry screen is shown rather than a crash.
+DataGuard opens a SQL Server connection screen when no active database is selected. After connection, the app launches into the Welcome page and exposes the full validation console through the sidebar.
 
 ### 3. Interpret a validation failure
 
-When a rule references an invalid column, the `ValidationService` catches the ODBC error and writes to `validation.log`:
+Validation failures are recorded in run history, rule result tables, error logs, and structured operational logs. A failed validation event includes fields such as severity, validation ID, correlation ID, rule code, validation status, duration, payload JSON, and stack trace when available:
 
-```
-ERROR:services.validation_service:Validation failed: ('42S22',
-"[42S22] [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]
-Invalid column name 'FIrstNameS'. (207) (SQLExecDirectW)")
+```text
+severity: ERROR
+event_type: validation.failed
+validation_status: FAILED
+message: Validation failed for Customers.Email using IsEmail.
+correlation_id: 03A0C1A5-BDEF-4913-9F22-2AF91B68745A
 ```
 
-The error code `42S22` maps to `error_code_master` for human-readable reporting in the UI.
+Use the Operational Logs page to filter by severity, minimum severity, validation ID, rule ID, status, time range, and free-text search.
 
 ---
 
@@ -79,14 +82,14 @@ The error code `42S22` maps to `error_code_master` for human-readable reporting 
 
 | Rule | Description | Example |
 |---|---|---|
-| `vf_not_null` | Column value must not be NULL | `FirstName IS NOT NULL` |
-| `vf_max_length` | String length must not exceed a threshold | `LEN(Email) <= 255` |
-| `vf_numeric_range` | Numeric value must fall within min/max bounds | `Age BETWEEN 0 AND 150` |
-| `vf_regex_match` | Value must match a regular expression pattern | `PostCode LIKE '[A-Z][0-9]%'` |
-| `vf_referential` | Foreign key value must exist in a reference table | `CountryCode IN (SELECT Code FROM Countries)` |
-| `vf_date_format` | Date column must be a valid, parseable date | `ISDATE(BirthDate) = 1` |
+| `vf_NOT_NULL` | Column value must not be NULL | `FirstName IS NOT NULL` |
+| `vf_trimmed` | Text must not contain leading or trailing whitespace | `Name = LTRIM(RTRIM(Name))` |
+| `vf_IsEmail` | Text must be a valid email shape | `Email LIKE '%@%.%'` |
+| `vf_HasLength` | String length must stay within the configured limit | `LEN(Code) <= 50` |
+| `vf_age_range` | Numeric age must fall within the allowed range | `Age BETWEEN 0 AND 150` |
+| `vf_date_not_in_future` | Date value must not be later than the current date | `BirthDate <= GETDATE()` |
 
-> Rules are dispatched dynamically by `vp_validate_column` — adding a new `dbo.vf_*` scalar function automatically makes it available to the dispatcher.
+> Rules are configured through `temp_validation_config` and executed by SQL Server procedures that call matching `dbo.vf_*` validation functions.
 
 ---
 
@@ -96,24 +99,29 @@ The error code `42S22` maps to `error_code_master` for human-readable reporting 
 
 | Function | Returns | Description |
 |---|---|---|
-| `test_connection()` | `dict` | Attempts a DB handshake; returns `{'success': bool, 'driver': str}` |
-| `get_connection()` | `pyodbc.Connection` | Returns an open connection using the discovered driver |
-| `discover_working_connection_string()` | `str` | Iterates available ODBC drivers and returns the first working DSN |
-| `close_connection(conn)` | `None` | Safely closes an open connection |
+| `test_connection()` | `dict` | Attempts a DB handshake and returns connection status details |
+| `get_connection()` | `pyodbc.Connection` | Returns an open SQL Server connection for the selected database |
+| `get_available_drivers()` | `list[str]` | Lists installed SQL Server-compatible ODBC drivers |
+| `discover_server_connection()` | `str` | Builds a server-level connection string for database discovery |
+| `list_databases()` | `list[str]` | Lists user databases available on the selected SQL Server instance |
+| `switch_database()` | `None` | Updates the active database connection for the Streamlit session |
 
 ### `test_connection.py` (legacy helpers)
 
 | Function | Returns | Description |
 |---|---|---|
-| `get_available_drivers()` | `list[str]` | Filters `pyodbc.drivers()` to SQL Server-compatible drivers |
+| `get_available_drivers()` | `list[str]` | Filters installed ODBC drivers to SQL Server-compatible options |
 
 ### Streamlit Pages (`pages/`)
 
 | Page | Route | Description |
 |---|---|---|
-| Overview | `pages/1_Overview.py` | Entry point; summary dashboard |
-| Rules | `pages/Rules.py` | Define and manage validation rules |
-| Results | `pages/Results.py` | Per-rule pass/fail history and error rate trends |
+| Welcome | `pages/1_Welcome.py` | Product entry point, connection context, and next-step actions |
+| Health Dashboard | `pages/2_Dashboard.py` | Validation health, records scanned, failures, and quality charts |
+| Run Validations | `pages/3_Execute.py` | Three-step wizard for selecting scope, options, and execution |
+| Results & History | `pages/4_History.py` | Run log, error explorer, and quality trend review |
+| Rule Manager | `pages/5_Rules.py` | Add suggested/manual rules and inspect the active ruleset |
+| Operational Logs | `pages/6_Logs.py` | Live structured log stream with filters and event drill-down |
 
 ---
 
@@ -127,7 +135,7 @@ The error code `42S22` maps to `error_code_master` for human-readable reporting 
 3. Make your changes, adding tests under `tests/` where applicable.
 4. **Open a Pull Request** against `main` with a clear description of what changed and why.
 
-Please keep SQL scalar functions prefixed `dbo.vf_*` and service methods in `services/validation_service.py` to maintain the dispatcher contract.
+Please keep SQL scalar functions prefixed `dbo.vf_*`, validation orchestration in `services/validation_service.py`, and structured log behavior in `services/logs_service.py` so UI, API, and SQL behavior remain aligned.
 
 ---
 
@@ -138,7 +146,7 @@ Please keep SQL scalar functions prefixed `dbo.vf_*` and service methods in `ser
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-2019%2B-CC2927)
 ![Commits](https://img.shields.io/github/commit-activity/m/LSZTM/B1_Training_Project)
 
-Active development. Core validation pipeline, DB layer, and Streamlit UI are functional. Rule health metrics (P7) and canonical `Rule` object (P3) are in progress.
+Active development. Core validation execution, rule management, structured logging, run history, per-rule result tracking, and the Streamlit console are functional. Current focus areas include hardening SQL migrations, expanding rule coverage, and improving local demo reliability.
 
 ---
 
@@ -150,4 +158,4 @@ This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for d
 
 ## Support
 
-Open an [issue](https://github.com/LSZTM/B1_Training_Project/issues) on GitHub for bug reports or feature requests. For DB connectivity problems, confirm that **ODBC Driver 17 (or 18) for SQL Server** is installed on your machine and that the `QUERY_PRACTICE` server is reachable from your host.
+Open an [issue](https://github.com/LSZTM/B1_Training_Project/issues) on GitHub for bug reports or feature requests. For DB connectivity problems, confirm that **ODBC Driver 17 or 18 for SQL Server** is installed, SQL Server is running, and the selected database is reachable from your machine.
