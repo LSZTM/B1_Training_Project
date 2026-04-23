@@ -24,6 +24,8 @@ if "execute_mode" not in st.session_state:
     st.session_state.execute_mode = "Complete ruleset"
 if "execute_schedule" not in st.session_state:
     st.session_state.execute_schedule = "Run now"
+if "execute_last_result" not in st.session_state:
+    st.session_state.execute_last_result = None
 
 
 def next_step():
@@ -39,6 +41,7 @@ def reset_workflow():
     st.session_state.selected_tables = []
     st.session_state.execute_mode = "Complete ruleset"
     st.session_state.execute_schedule = "Run now"
+    st.session_state.execute_last_result = None
 
 
 st.markdown(
@@ -202,22 +205,26 @@ elif st.session_state.execute_step == 3:
             with st.spinner("Running validations... this may take a moment."):
                 result = ValidationService.run_all_validations(table_names=st.session_state.selected_tables)
 
-            if result.get("success"):
-                status = result.get("status", "COMPLETED")
-                total_errors = result.get("total_errors", 0)
-                st.markdown(
-                    f"""
-                    <div class="dg-row {'state-pass' if total_errors == 0 else 'state-fail'}">
-                        <div class="dg-row-title">Validation run {status.lower()}</div>
-                        <div class="dg-row-meta">{total_errors:,} failures recorded. Open Results & History for the run ledger.</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                if st.button("Open Results & History", use_container_width=True):
-                    st.switch_page("pages/4_History.py")
-            else:
-                st.error(f"Execution failed: {result.get('error', 'Unknown error')}")
+            st.session_state.execute_last_result = result
+
+    result = st.session_state.get("execute_last_result")
+    if result:
+        if result.get("success"):
+            status = result.get("status", "COMPLETED")
+            total_errors = result.get("total_errors", 0)
+            st.markdown(
+                f"""
+                <div class="dg-row {'state-pass' if total_errors == 0 else 'state-fail'}">
+                    <div class="dg-row-title">Validation run {status.lower()}</div>
+                    <div class="dg-row-meta">{total_errors:,} failures recorded. Open Results & History for the run ledger.</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            if st.button("Open Results & History", use_container_width=True):
+                st.switch_page("pages/4_History.py")
+        else:
+            st.error(f"Execution failed: {result.get('error', 'Unknown error')}")
 
 st.sidebar.markdown("---")
 if st.sidebar.button("Reset workflow", use_container_width=True):
