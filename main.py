@@ -7,6 +7,7 @@ from utils.db import (
     discover_server_connection,
     get_available_drivers,
     list_databases,
+    requires_sql_auth,
     switch_database,
     test_connection,
 )
@@ -122,14 +123,20 @@ if not st.session_state.connected or st.session_state.get("db_setup_mode"):
                 options=available_drivers if available_drivers else ["{ODBC Driver 17 for SQL Server}", "{SQL Server}"],
             )
 
+        remote_requires_sql_auth = requires_sql_auth(server_input)
         auth_mode = st.radio(
             "Authentication",
             ["Windows Authentication (Trusted)", "SQL Server Authentication (Username/Password)"],
+            index=1 if remote_requires_sql_auth else 0,
             horizontal=True,
+            help="Ngrok TCP endpoints require SQL Server Authentication; Windows Authentication only works for local/domain-reachable SQL Server instances.",
         )
 
         username_input = None
         password_input = None
+        if remote_requires_sql_auth and "Windows Authentication" in auth_mode:
+            st.warning("Ngrok TCP endpoints require SQL Server Authentication. Use the SQL login configured on the SQL Server host.")
+
         if "SQL Server" in auth_mode:
             c3, c4 = st.columns(2)
             with c3:
@@ -142,13 +149,18 @@ if not st.session_state.connected or st.session_state.get("db_setup_mode"):
         databases = []
         server_error = None
         try:
-            master_conn_str = discover_server_connection(
-                server=server_input,
-                driver=driver_input,
-                username=username_input,
-                password=password_input,
-            )
-            databases = list_databases(server_conn_str=master_conn_str)
+            if remote_requires_sql_auth and "Windows Authentication" in auth_mode:
+                server_error = "Select SQL Server Authentication for ngrok TCP endpoints."
+            elif "SQL Server" in auth_mode and (not username_input or not password_input):
+                server_error = "Enter both username and password to list databases."
+            else:
+                master_conn_str = discover_server_connection(
+                    server=server_input,
+                    driver=driver_input,
+                    username=username_input,
+                    password=password_input,
+                )
+                databases = list_databases(server_conn_str=master_conn_str)
         except ConnectionError as exc:
             server_error = str(exc)
 
